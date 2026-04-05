@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "mysql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "5",
+      "when": 1774403183807,
+      "tag": "0000_quiet_the_initiative",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1774403456011,
+      "tag": "0001_curvy_weapon_omega",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1775289600000,
+      "tag": "0002_auth_cutover",
+      "breakpoints": true
+    }
+  ]
+}

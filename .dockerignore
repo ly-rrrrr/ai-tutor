@@ -1,0 +1,9 @@
+node_modules
+dist
+.env
+.env.*
+.manus
+.manus-logs
+dev.log
+coverage
+*.log

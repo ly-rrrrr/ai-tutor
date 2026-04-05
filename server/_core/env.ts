@@ -1,0 +1,17 @@
+export const ENV = {
+  appOrigin: process.env.APP_ORIGIN ?? "http://localhost:3000",
+  databaseUrl: process.env.DATABASE_URL ?? "",
+  betterAuthSecret: process.env.BETTER_AUTH_SECRET ?? "",
+  adminEmail: process.env.ADMIN_EMAIL?.trim().toLowerCase() ?? "",
+  isProduction: process.env.NODE_ENV === "production",
+  openAiApiKey: process.env.OPENAI_API_KEY ?? "",
+  openAiChatModel: process.env.OPENAI_CHAT_MODEL ?? "gpt-4o-mini",
+  openAiSttModel: process.env.OPENAI_STT_MODEL ?? "whisper-1",
+  openAiTtsModel: process.env.OPENAI_TTS_MODEL ?? "gpt-4o-mini-tts",
+  awsRegion: process.env.AWS_REGION ?? "ap-southeast-1",
+  awsS3Bucket: process.env.AWS_S3_BUCKET ?? "",
+  awsAccessKeyId: process.env.AWS_ACCESS_KEY_ID ?? "",
+  awsSecretAccessKey: process.env.AWS_SECRET_ACCESS_KEY ?? "",
+  resendApiKey: process.env.RESEND_API_KEY ?? "",
+  resendFromEmail: process.env.RESEND_FROM_EMAIL ?? "",
+};
