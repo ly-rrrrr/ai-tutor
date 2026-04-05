@@ -59,6 +59,24 @@ describe("aiGateway", () => {
     expect(ENV.aiChatModel).toBe("gpt-4o-mini");
   });
 
+  it("keeps the OpenAI base url when only legacy provider credentials are set alongside AI model vars", async () => {
+    vi.stubEnv("AI_BASE_URL", "");
+    vi.stubEnv("AI_API_KEY", "");
+    vi.stubEnv("AI_CHAT_MODEL", "gpt-4.1-mini");
+    vi.stubEnv("AI_STT_MODEL", "");
+    vi.stubEnv("AI_TTS_MODEL", "");
+    vi.stubEnv("OPENAI_API_KEY", "legacy-key");
+    vi.stubEnv("OPENAI_CHAT_MODEL", "");
+    vi.stubEnv("OPENAI_STT_MODEL", "");
+    vi.stubEnv("OPENAI_TTS_MODEL", "");
+
+    const { ENV } = await import("./_core/env");
+
+    expect(ENV.aiBaseUrl).toBe("https://api.openai.com/v1");
+    expect(ENV.aiApiKey).toBe("legacy-key");
+    expect(ENV.aiChatModel).toBe("gpt-4.1-mini");
+  });
+
   it("buildAiGatewayUrl trims trailing slashes before joining paths", async () => {
     vi.stubEnv("AI_BASE_URL", "https://ai.example.com/v1///");
     vi.stubEnv("AI_API_KEY", "test-key");

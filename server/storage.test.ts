@@ -115,4 +115,29 @@ describe("storage", () => {
       },
     });
   });
+
+  it("uses legacy AWS alias fields and default region in the explicit legacy branch", async () => {
+    vi.stubEnv("S3_ENDPOINT", "");
+    vi.stubEnv("S3_REGION", "");
+    vi.stubEnv("S3_BUCKET", "");
+    vi.stubEnv("S3_ACCESS_KEY_ID", "");
+    vi.stubEnv("S3_SECRET_ACCESS_KEY", "");
+    vi.stubEnv("AWS_REGION", "");
+    vi.stubEnv("AWS_S3_BUCKET", "legacy-bucket");
+    vi.stubEnv("AWS_ACCESS_KEY_ID", "legacy-key-id");
+    vi.stubEnv("AWS_SECRET_ACCESS_KEY", "legacy-secret-key");
+    getSignedUrlMock.mockResolvedValue("https://storage.example.com/audio.mp3");
+
+    const { storagePut } = await import("./storage");
+
+    await storagePut("/audio.mp3", "audio-data", "audio/mpeg");
+
+    expect(s3ClientCtorMock).toHaveBeenCalledWith({
+      region: "ap-southeast-1",
+      credentials: {
+        accessKeyId: "legacy-key-id",
+        secretAccessKey: "legacy-secret-key",
+      },
+    });
+  });
 });

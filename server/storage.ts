@@ -61,16 +61,16 @@ function getStorageConfig(): StorageConfig {
 
   if (!s3Client) {
     s3Client = new S3Client({
-      region: ENV.s3Region,
+      region: ENV.awsRegion,
       credentials: {
-        accessKeyId: ENV.s3AccessKeyId,
-        secretAccessKey: ENV.s3SecretAccessKey,
+        accessKeyId: ENV.awsAccessKeyId,
+        secretAccessKey: ENV.awsSecretAccessKey,
       },
     });
   }
 
   return {
-    bucket: ENV.s3Bucket,
+    bucket: ENV.awsS3Bucket,
     client: s3Client,
   };
 }

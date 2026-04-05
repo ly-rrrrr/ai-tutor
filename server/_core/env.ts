@@ -1,9 +1,5 @@
-const hasAnyAiEnv =
-  Boolean(process.env.AI_BASE_URL) ||
-  Boolean(process.env.AI_API_KEY) ||
-  Boolean(process.env.AI_CHAT_MODEL) ||
-  Boolean(process.env.AI_STT_MODEL) ||
-  Boolean(process.env.AI_TTS_MODEL);
+const hasExplicitAiProviderEnv =
+  Boolean(process.env.AI_BASE_URL) || Boolean(process.env.AI_API_KEY);
 
 const hasAnyLegacyOpenAiEnv =
   Boolean(process.env.OPENAI_API_KEY) ||
@@ -11,7 +7,8 @@ const hasAnyLegacyOpenAiEnv =
   Boolean(process.env.OPENAI_STT_MODEL) ||
   Boolean(process.env.OPENAI_TTS_MODEL);
 
-const isLegacyOpenAiCompatibilityPath = !hasAnyAiEnv && hasAnyLegacyOpenAiEnv;
+const isLegacyOpenAiCompatibilityPath =
+  !hasExplicitAiProviderEnv && hasAnyLegacyOpenAiEnv;
 const resolvedAiBaseUrl =
   process.env.AI_BASE_URL ||
   (isLegacyOpenAiCompatibilityPath
@@ -66,13 +63,13 @@ export const ENV = {
     process.env.AI_TTS_MODEL ||
     process.env.OPENAI_TTS_MODEL ||
     "gpt-4o-mini-tts",
-  awsRegion: process.env.S3_REGION ?? process.env.AWS_REGION ?? "ap-southeast-1",
-  awsS3Bucket: process.env.S3_BUCKET ?? process.env.AWS_S3_BUCKET ?? "",
+  awsRegion: process.env.S3_REGION || process.env.AWS_REGION || "ap-southeast-1",
+  awsS3Bucket: process.env.S3_BUCKET || process.env.AWS_S3_BUCKET || "",
   awsAccessKeyId:
-    process.env.S3_ACCESS_KEY_ID ?? process.env.AWS_ACCESS_KEY_ID ?? "",
+    process.env.S3_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID || "",
   awsSecretAccessKey:
-    process.env.S3_SECRET_ACCESS_KEY ??
-    process.env.AWS_SECRET_ACCESS_KEY ??
+    process.env.S3_SECRET_ACCESS_KEY ||
+    process.env.AWS_SECRET_ACCESS_KEY ||
     "",
   resendApiKey: process.env.RESEND_API_KEY ?? "",
   resendFromEmail:
