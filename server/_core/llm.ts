@@ -1,4 +1,9 @@
 import { ENV } from "./env";
+import {
+  assertAiGatewayConfigured,
+  buildAiGatewayUrl,
+  getAiGatewayHeaders,
+} from "./aiGateway";
 
 export type Role = "system" | "user" | "assistant" | "tool" | "function";
 
@@ -209,14 +214,6 @@ const normalizeToolChoice = (
   return toolChoice;
 };
 
-const resolveApiUrl = () => "https://api.openai.com/v1/chat/completions";
-
-const assertApiKey = () => {
-  if (!ENV.openAiApiKey) {
-    throw new Error("OPENAI_API_KEY is not configured");
-  }
-};
-
 const normalizeResponseFormat = ({
   responseFormat,
   response_format,
@@ -263,7 +260,7 @@ const normalizeResponseFormat = ({
 };
 
 export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
-  assertApiKey();
+  assertAiGatewayConfigured();
 
   const {
     messages,
@@ -279,7 +276,7 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
   } = params;
 
   const payload: Record<string, unknown> = {
-    model: ENV.openAiChatModel,
+    model: ENV.aiChatModel,
     messages: messages.map(normalizeMessage),
     max_tokens: maxTokens ?? max_tokens ?? 4096,
   };
@@ -306,12 +303,11 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
     payload.response_format = normalizedResponseFormat;
   }
 
-  const response = await fetch(resolveApiUrl(), {
+  const response = await fetch(buildAiGatewayUrl("/chat/completions"), {
     method: "POST",
-    headers: {
+    headers: getAiGatewayHeaders({
       "content-type": "application/json",
-      authorization: `Bearer ${ENV.openAiApiKey}`,
-    },
+    }),
     body: JSON.stringify(payload),
   });
 

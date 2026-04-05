@@ -4,6 +4,7 @@
  * Returns audio as a Buffer that can be uploaded to S3 for playback.
  */
 import { ENV } from "./env";
+import { buildAiGatewayUrl, getAiGatewayHeaders } from "./aiGateway";
 
 export type TTSOptions = {
   text: string;
@@ -31,11 +32,11 @@ export async function textToSpeech(
   options: TTSOptions
 ): Promise<TTSResult | TTSError> {
   try {
-    if (!ENV.openAiApiKey) {
+    if (!ENV.aiBaseUrl || !ENV.aiApiKey) {
       return {
         error: "TTS service is not configured",
         code: "SERVICE_ERROR",
-        details: "OPENAI_API_KEY is not set",
+        details: "AI_BASE_URL and AI_API_KEY must be configured",
       };
     }
 
@@ -50,8 +51,6 @@ export async function textToSpeech(
     // Limit text length to prevent abuse (4096 chars max for OpenAI TTS)
     const text = options.text.slice(0, 4096);
 
-    const fullUrl = "https://api.openai.com/v1/audio/speech";
-
     const format = options.response_format || "mp3";
     const voiceMap: Record<NonNullable<TTSOptions["voice"]>, string> = {
       alloy: "alloy",
@@ -63,14 +62,13 @@ export async function textToSpeech(
     };
     const selectedVoice = voiceMap[options.voice || "nova"] || "shimmer";
 
-    const response = await fetch(fullUrl, {
+    const response = await fetch(buildAiGatewayUrl("/audio/speech"), {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${ENV.openAiApiKey}`,
-      },
+      headers: getAiGatewayHeaders({
+        "content-type": "application/json",
+      }),
       body: JSON.stringify({
-        model: options.model || ENV.openAiTtsModel,
+        model: options.model || ENV.aiTtsModel,
         input: text,
         voice: selectedVoice,
         speed: options.speed || 1.0,

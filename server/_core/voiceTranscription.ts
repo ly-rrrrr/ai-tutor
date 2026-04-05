@@ -26,6 +26,7 @@
  * ```
  */
 import { ENV } from "./env";
+import { buildAiGatewayUrl, getAiGatewayHeaders } from "./aiGateway";
 
 export type TranscribeOptions = {
   audioUrl: string; // URL to the audio file (e.g., S3 URL)
@@ -75,11 +76,11 @@ export async function transcribeAudio(
 ): Promise<TranscriptionResponse | TranscriptionError> {
   try {
     // Step 1: Validate environment configuration
-    if (!ENV.openAiApiKey) {
+    if (!ENV.aiBaseUrl || !ENV.aiApiKey) {
       return {
         error: "Voice transcription service is not configured",
         code: "SERVICE_ERROR",
-        details: "OPENAI_API_KEY is not set"
+        details: "AI_BASE_URL and AI_API_KEY must be configured"
       };
     }
 
@@ -124,7 +125,7 @@ export async function transcribeAudio(
     const audioBlob = new Blob([new Uint8Array(audioBuffer)], { type: mimeType });
     formData.append("file", audioBlob, filename);
     
-    formData.append("model", ENV.openAiSttModel);
+    formData.append("model", ENV.aiSttModel);
     formData.append("response_format", "verbose_json");
     
     // Add prompt - use custom prompt if provided, otherwise generate based on language
@@ -136,13 +137,9 @@ export async function transcribeAudio(
     formData.append("prompt", prompt);
 
     // Step 4: Call the transcription service
-    const fullUrl = "https://api.openai.com/v1/audio/transcriptions";
-
-    const response = await fetch(fullUrl, {
+    const response = await fetch(buildAiGatewayUrl("/audio/transcriptions"), {
       method: "POST",
-      headers: {
-        authorization: `Bearer ${ENV.openAiApiKey}`,
-      },
+      headers: getAiGatewayHeaders(),
       body: formData,
     });
 

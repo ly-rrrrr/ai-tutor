@@ -3,15 +3,55 @@ export const ENV = {
   databaseUrl: process.env.DATABASE_URL ?? "",
   betterAuthSecret: process.env.BETTER_AUTH_SECRET ?? "",
   adminEmail: process.env.ADMIN_EMAIL?.trim().toLowerCase() ?? "",
+  nodeEnv: process.env.NODE_ENV ?? "development",
   isProduction: process.env.NODE_ENV === "production",
-  openAiApiKey: process.env.OPENAI_API_KEY ?? "",
-  openAiChatModel: process.env.OPENAI_CHAT_MODEL ?? "gpt-4o-mini",
-  openAiSttModel: process.env.OPENAI_STT_MODEL ?? "whisper-1",
-  openAiTtsModel: process.env.OPENAI_TTS_MODEL ?? "gpt-4o-mini-tts",
-  awsRegion: process.env.AWS_REGION ?? "ap-southeast-1",
-  awsS3Bucket: process.env.AWS_S3_BUCKET ?? "",
-  awsAccessKeyId: process.env.AWS_ACCESS_KEY_ID ?? "",
-  awsSecretAccessKey: process.env.AWS_SECRET_ACCESS_KEY ?? "",
+  isDevelopment: (process.env.NODE_ENV ?? "development") === "development",
+  aiBaseUrl: process.env.AI_BASE_URL || "https://aihubmix.com/v1",
+  aiApiKey: process.env.AI_API_KEY ?? process.env.OPENAI_API_KEY ?? "",
+  aiChatModel:
+    process.env.AI_CHAT_MODEL ||
+    process.env.OPENAI_CHAT_MODEL ||
+    "gemini-2.5-flash-lite",
+  aiSttModel:
+    process.env.AI_STT_MODEL ?? process.env.OPENAI_STT_MODEL ?? "whisper-1",
+  aiTtsModel:
+    process.env.AI_TTS_MODEL ??
+    process.env.OPENAI_TTS_MODEL ??
+    "gpt-4o-mini-tts",
+  s3Endpoint: process.env.S3_ENDPOINT ?? "",
+  s3Region: process.env.S3_REGION || "ap-hongkong",
+  s3Bucket: process.env.S3_BUCKET ?? process.env.AWS_S3_BUCKET ?? "",
+  s3AccessKeyId:
+    process.env.S3_ACCESS_KEY_ID ?? process.env.AWS_ACCESS_KEY_ID ?? "",
+  s3SecretAccessKey:
+    process.env.S3_SECRET_ACCESS_KEY ??
+    process.env.AWS_SECRET_ACCESS_KEY ??
+    "",
+  s3PublicBaseUrl: process.env.S3_PUBLIC_BASE_URL ?? "",
+  smtpHost: process.env.SMTP_HOST ?? "",
+  smtpPort: Number(process.env.SMTP_PORT ?? "587"),
+  smtpUser: process.env.SMTP_USER ?? "",
+  smtpPass: process.env.SMTP_PASS ?? "",
+  smtpFromEmail:
+    process.env.SMTP_FROM_EMAIL ?? process.env.RESEND_FROM_EMAIL ?? "",
+  openAiApiKey: process.env.AI_API_KEY ?? process.env.OPENAI_API_KEY ?? "",
+  openAiChatModel:
+    process.env.AI_CHAT_MODEL ?? process.env.OPENAI_CHAT_MODEL ?? "gpt-4o-mini",
+  openAiSttModel:
+    process.env.AI_STT_MODEL ?? process.env.OPENAI_STT_MODEL ?? "whisper-1",
+  openAiTtsModel:
+    process.env.AI_TTS_MODEL ??
+    process.env.OPENAI_TTS_MODEL ??
+    "gpt-4o-mini-tts",
+  awsRegion: process.env.S3_REGION ?? process.env.AWS_REGION ?? "ap-southeast-1",
+  awsS3Bucket: process.env.S3_BUCKET ?? process.env.AWS_S3_BUCKET ?? "",
+  awsAccessKeyId:
+    process.env.S3_ACCESS_KEY_ID ?? process.env.AWS_ACCESS_KEY_ID ?? "",
+  awsSecretAccessKey:
+    process.env.S3_SECRET_ACCESS_KEY ??
+    process.env.AWS_SECRET_ACCESS_KEY ??
+    "",
   resendApiKey: process.env.RESEND_API_KEY ?? "",
-  resendFromEmail: process.env.RESEND_FROM_EMAIL ?? "",
+  resendFromEmail:
+    process.env.RESEND_FROM_EMAIL ?? process.env.SMTP_FROM_EMAIL ?? "",
 };
