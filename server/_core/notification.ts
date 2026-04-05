@@ -1,6 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import { ENV } from "./env";
-import { sendEmail } from "./resend";
+import { assertEmailConfigured, sendEmail } from "./email";
 
 export type NotificationPayload = {
   title: string;
@@ -49,7 +49,7 @@ const validatePayload = (input: NotificationPayload): NotificationPayload => {
 };
 
 /**
- * Dispatches an admin notification email through Resend.
+ * Dispatches an admin notification email through SMTP.
  */
 export async function notifyOwner(
   payload: NotificationPayload
@@ -63,10 +63,13 @@ export async function notifyOwner(
     });
   }
 
-  if (!ENV.resendApiKey || !ENV.resendFromEmail) {
+  try {
+    assertEmailConfigured();
+  } catch (error) {
     throw new TRPCError({
       code: "INTERNAL_SERVER_ERROR",
-      message: "Resend email service is not configured.",
+      message:
+        error instanceof Error ? error.message : "SMTP email service is not configured.",
     });
   }
 

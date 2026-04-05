@@ -6,7 +6,7 @@ import { magicLink } from "better-auth/plugins";
 import { COOKIE_NAME } from "@shared/const";
 import { getRequiredMySqlPool } from "./mysql";
 import { ENV } from "./env";
-import { sendEmail } from "./resend";
+import { sendEmail } from "./email";
 
 export type AuthIdentity = {
   id: string;
@@ -90,7 +90,14 @@ function normalizeOrigin(value: string) {
 }
 
 function isAuthConfigured() {
-  return Boolean(ENV.databaseUrl && ENV.betterAuthSecret && ENV.resendApiKey);
+  return Boolean(
+    ENV.databaseUrl &&
+      ENV.betterAuthSecret &&
+      ENV.smtpHost &&
+      ENV.smtpUser &&
+      ENV.smtpPass &&
+      ENV.smtpFromEmail
+  );
 }
 
 function escapeHtml(value: string) {
@@ -196,7 +203,7 @@ export function registerAuthRoutes(app: Express) {
     if (!isAuthConfigured()) {
       res.status(503).json({
         error:
-          "Authentication is not configured. Set DATABASE_URL, BETTER_AUTH_SECRET, RESEND_API_KEY and RESEND_FROM_EMAIL.",
+          "Authentication is not configured. Set DATABASE_URL, BETTER_AUTH_SECRET, SMTP_HOST, SMTP_USER, SMTP_PASS, and SMTP_FROM_EMAIL.",
       });
       return;
     }
