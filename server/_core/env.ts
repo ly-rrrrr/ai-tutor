@@ -12,6 +12,16 @@ const hasAnyLegacyOpenAiEnv =
   Boolean(process.env.OPENAI_TTS_MODEL);
 
 const isLegacyOpenAiCompatibilityPath = !hasAnyAiEnv && hasAnyLegacyOpenAiEnv;
+const resolvedAiBaseUrl =
+  process.env.AI_BASE_URL ||
+  (isLegacyOpenAiCompatibilityPath
+    ? "https://api.openai.com/v1"
+    : "https://aihubmix.com/v1");
+const normalizedAiBaseUrl = resolvedAiBaseUrl.replace(/\/+$/, "");
+const defaultAiChatModel =
+  normalizedAiBaseUrl === "https://api.openai.com/v1"
+    ? "gpt-4o-mini"
+    : "gemini-2.5-flash-lite";
 
 export const ENV = {
   appOrigin: process.env.APP_ORIGIN ?? "http://localhost:3000",
@@ -21,18 +31,10 @@ export const ENV = {
   nodeEnv: process.env.NODE_ENV ?? "development",
   isProduction: process.env.NODE_ENV === "production",
   isDevelopment: (process.env.NODE_ENV ?? "development") === "development",
-  aiBaseUrl:
-    process.env.AI_BASE_URL ||
-    (isLegacyOpenAiCompatibilityPath
-      ? "https://api.openai.com/v1"
-      : "https://aihubmix.com/v1"),
+  aiBaseUrl: resolvedAiBaseUrl,
   aiApiKey: process.env.AI_API_KEY || process.env.OPENAI_API_KEY || "",
   aiChatModel:
-    process.env.AI_CHAT_MODEL ||
-    process.env.OPENAI_CHAT_MODEL ||
-    (isLegacyOpenAiCompatibilityPath
-      ? "gpt-4o-mini"
-      : "gemini-2.5-flash-lite"),
+    process.env.AI_CHAT_MODEL || process.env.OPENAI_CHAT_MODEL || defaultAiChatModel,
   aiSttModel:
     process.env.AI_STT_MODEL || process.env.OPENAI_STT_MODEL || "whisper-1",
   aiTtsModel:
@@ -41,12 +43,12 @@ export const ENV = {
     "gpt-4o-mini-tts",
   s3Endpoint: process.env.S3_ENDPOINT ?? "",
   s3Region: process.env.S3_REGION || process.env.AWS_REGION || "ap-hongkong",
-  s3Bucket: process.env.S3_BUCKET ?? process.env.AWS_S3_BUCKET ?? "",
+  s3Bucket: process.env.S3_BUCKET || process.env.AWS_S3_BUCKET || "",
   s3AccessKeyId:
-    process.env.S3_ACCESS_KEY_ID ?? process.env.AWS_ACCESS_KEY_ID ?? "",
+    process.env.S3_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID || "",
   s3SecretAccessKey:
-    process.env.S3_SECRET_ACCESS_KEY ??
-    process.env.AWS_SECRET_ACCESS_KEY ??
+    process.env.S3_SECRET_ACCESS_KEY ||
+    process.env.AWS_SECRET_ACCESS_KEY ||
     "",
   s3PublicBaseUrl: process.env.S3_PUBLIC_BASE_URL ?? "",
   smtpHost: process.env.SMTP_HOST ?? "",

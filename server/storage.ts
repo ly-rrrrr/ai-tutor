@@ -10,12 +10,50 @@ type StorageConfig = {
 let s3Client: S3Client | null = null;
 
 function getStorageConfig(): StorageConfig {
-  if (
-    !ENV.s3Region ||
-    !ENV.s3Bucket ||
-    !ENV.s3AccessKeyId ||
-    !ENV.s3SecretAccessKey
-  ) {
+  const hasProviderNeutralStorageEnv =
+    Boolean(process.env.S3_ENDPOINT) ||
+    Boolean(process.env.S3_REGION) ||
+    Boolean(process.env.S3_BUCKET) ||
+    Boolean(process.env.S3_ACCESS_KEY_ID) ||
+    Boolean(process.env.S3_SECRET_ACCESS_KEY);
+
+  const hasLegacyAwsStorageEnv =
+    Boolean(process.env.AWS_REGION) ||
+    Boolean(process.env.AWS_S3_BUCKET) ||
+    Boolean(process.env.AWS_ACCESS_KEY_ID) ||
+    Boolean(process.env.AWS_SECRET_ACCESS_KEY);
+
+  if (hasProviderNeutralStorageEnv) {
+    if (
+      !ENV.s3Endpoint ||
+      !ENV.s3Region ||
+      !ENV.s3Bucket ||
+      !ENV.s3AccessKeyId ||
+      !ENV.s3SecretAccessKey
+    ) {
+      throw new Error(
+        "S3 storage is not configured. Set S3_ENDPOINT, S3_REGION, S3_BUCKET, S3_ACCESS_KEY_ID and S3_SECRET_ACCESS_KEY."
+      );
+    }
+
+    if (!s3Client) {
+      s3Client = new S3Client({
+        endpoint: ENV.s3Endpoint,
+        region: ENV.s3Region,
+        credentials: {
+          accessKeyId: ENV.s3AccessKeyId,
+          secretAccessKey: ENV.s3SecretAccessKey,
+        },
+      });
+    }
+
+    return {
+      bucket: ENV.s3Bucket,
+      client: s3Client,
+    };
+  }
+
+  if (!hasLegacyAwsStorageEnv) {
     throw new Error(
       "S3 storage is not configured. Set S3_REGION, S3_BUCKET, S3_ACCESS_KEY_ID and S3_SECRET_ACCESS_KEY."
     );
@@ -23,7 +61,6 @@ function getStorageConfig(): StorageConfig {
 
   if (!s3Client) {
     s3Client = new S3Client({
-      ...(ENV.s3Endpoint ? { endpoint: ENV.s3Endpoint } : {}),
       region: ENV.s3Region,
       credentials: {
         accessKeyId: ENV.s3AccessKeyId,
