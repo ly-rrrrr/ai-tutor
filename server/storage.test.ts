@@ -140,4 +140,22 @@ describe("storage", () => {
       },
     });
   });
+
+  it("fails fast when the legacy AWS branch is only partially configured", async () => {
+    vi.stubEnv("S3_ENDPOINT", "");
+    vi.stubEnv("S3_REGION", "");
+    vi.stubEnv("S3_BUCKET", "");
+    vi.stubEnv("S3_ACCESS_KEY_ID", "");
+    vi.stubEnv("S3_SECRET_ACCESS_KEY", "");
+    vi.stubEnv("AWS_REGION", "us-east-2");
+    vi.stubEnv("AWS_S3_BUCKET", "");
+    vi.stubEnv("AWS_ACCESS_KEY_ID", "");
+    vi.stubEnv("AWS_SECRET_ACCESS_KEY", "");
+
+    const { storageGet } = await import("./storage");
+
+    await expect(storageGet("audio.mp3")).rejects.toThrow(
+      "S3 storage is not configured. Set AWS_REGION, AWS_S3_BUCKET, AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY."
+    );
+  });
 });
