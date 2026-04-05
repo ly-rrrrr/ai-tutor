@@ -38,6 +38,7 @@ describe("aiGateway", () => {
 
     expect(ENV.aiBaseUrl).toBe("https://api.openai.com/v1");
     expect(ENV.aiApiKey).toBe("legacy-key");
+    expect(ENV.aiChatModel).toBe("gpt-4o-mini");
   });
 
   it("buildAiGatewayUrl trims trailing slashes before joining paths", async () => {

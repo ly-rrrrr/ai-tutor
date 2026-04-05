@@ -77,4 +77,26 @@ describe("storage", () => {
       "S3 storage is not configured. Set S3_REGION, S3_BUCKET, S3_ACCESS_KEY_ID and S3_SECRET_ACCESS_KEY."
     );
   });
+
+  it("falls back to AWS_REGION when S3_REGION is unset", async () => {
+    vi.stubEnv("S3_ENDPOINT", "");
+    vi.stubEnv("S3_REGION", "");
+    vi.stubEnv("AWS_REGION", "us-east-2");
+    vi.stubEnv("S3_BUCKET", "ai-tutor-audio-1250000000");
+    vi.stubEnv("S3_ACCESS_KEY_ID", "key-id");
+    vi.stubEnv("S3_SECRET_ACCESS_KEY", "secret-key");
+    getSignedUrlMock.mockResolvedValue("https://storage.example.com/audio.mp3");
+
+    const { storagePut } = await import("./storage");
+
+    await storagePut("/audio.mp3", "audio-data", "audio/mpeg");
+
+    expect(s3ClientCtorMock).toHaveBeenCalledWith({
+      region: "us-east-2",
+      credentials: {
+        accessKeyId: "key-id",
+        secretAccessKey: "secret-key",
+      },
+    });
+  });
 });
