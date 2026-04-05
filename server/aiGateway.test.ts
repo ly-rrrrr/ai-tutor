@@ -8,9 +8,15 @@ afterEach(() => {
 describe("aiGateway", () => {
   it("env defaults use provider-neutral gateway values", async () => {
     vi.stubEnv("AI_BASE_URL", "");
+    vi.stubEnv("AI_API_KEY", "");
     vi.stubEnv("AI_CHAT_MODEL", "");
+    vi.stubEnv("AI_STT_MODEL", "");
+    vi.stubEnv("AI_TTS_MODEL", "");
     vi.stubEnv("S3_REGION", "");
+    vi.stubEnv("OPENAI_API_KEY", "");
     vi.stubEnv("OPENAI_CHAT_MODEL", "");
+    vi.stubEnv("OPENAI_STT_MODEL", "");
+    vi.stubEnv("OPENAI_TTS_MODEL", "");
     vi.stubEnv("AWS_REGION", "");
 
     const { ENV } = await import("./_core/env");
@@ -18,6 +24,20 @@ describe("aiGateway", () => {
     expect(ENV.aiBaseUrl).toBe("https://aihubmix.com/v1");
     expect(ENV.aiChatModel).toBe("gemini-2.5-flash-lite");
     expect(ENV.s3Region).toBe("ap-hongkong");
+  });
+
+  it("env falls back to the OpenAI base url when only legacy openai envs are set", async () => {
+    vi.stubEnv("AI_BASE_URL", "");
+    vi.stubEnv("AI_API_KEY", "");
+    vi.stubEnv("AI_CHAT_MODEL", "");
+    vi.stubEnv("AI_STT_MODEL", "");
+    vi.stubEnv("AI_TTS_MODEL", "");
+    vi.stubEnv("OPENAI_API_KEY", "legacy-key");
+
+    const { ENV } = await import("./_core/env");
+
+    expect(ENV.aiBaseUrl).toBe("https://api.openai.com/v1");
+    expect(ENV.aiApiKey).toBe("legacy-key");
   });
 
   it("buildAiGatewayUrl trims trailing slashes before joining paths", async () => {

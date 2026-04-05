@@ -11,28 +11,29 @@ let s3Client: S3Client | null = null;
 
 function getStorageConfig(): StorageConfig {
   if (
-    !ENV.awsRegion ||
-    !ENV.awsS3Bucket ||
-    !ENV.awsAccessKeyId ||
-    !ENV.awsSecretAccessKey
+    !ENV.s3Region ||
+    !ENV.s3Bucket ||
+    !ENV.s3AccessKeyId ||
+    !ENV.s3SecretAccessKey
   ) {
     throw new Error(
-      "S3 storage is not configured. Set AWS_REGION, AWS_S3_BUCKET, AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY."
+      "S3 storage is not configured. Set S3_REGION, S3_BUCKET, S3_ACCESS_KEY_ID and S3_SECRET_ACCESS_KEY."
     );
   }
 
   if (!s3Client) {
     s3Client = new S3Client({
-      region: ENV.awsRegion,
+      ...(ENV.s3Endpoint ? { endpoint: ENV.s3Endpoint } : {}),
+      region: ENV.s3Region,
       credentials: {
-        accessKeyId: ENV.awsAccessKeyId,
-        secretAccessKey: ENV.awsSecretAccessKey,
+        accessKeyId: ENV.s3AccessKeyId,
+        secretAccessKey: ENV.s3SecretAccessKey,
       },
     });
   }
 
   return {
-    bucket: ENV.awsS3Bucket,
+    bucket: ENV.s3Bucket,
     client: s3Client,
   };
 }

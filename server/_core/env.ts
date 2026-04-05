@@ -1,3 +1,16 @@
+const hasAnyAiEnv =
+  Boolean(process.env.AI_BASE_URL) ||
+  Boolean(process.env.AI_API_KEY) ||
+  Boolean(process.env.AI_CHAT_MODEL) ||
+  Boolean(process.env.AI_STT_MODEL) ||
+  Boolean(process.env.AI_TTS_MODEL);
+
+const hasAnyLegacyOpenAiEnv =
+  Boolean(process.env.OPENAI_API_KEY) ||
+  Boolean(process.env.OPENAI_CHAT_MODEL) ||
+  Boolean(process.env.OPENAI_STT_MODEL) ||
+  Boolean(process.env.OPENAI_TTS_MODEL);
+
 export const ENV = {
   appOrigin: process.env.APP_ORIGIN ?? "http://localhost:3000",
   databaseUrl: process.env.DATABASE_URL ?? "",
@@ -6,17 +19,21 @@ export const ENV = {
   nodeEnv: process.env.NODE_ENV ?? "development",
   isProduction: process.env.NODE_ENV === "production",
   isDevelopment: (process.env.NODE_ENV ?? "development") === "development",
-  aiBaseUrl: process.env.AI_BASE_URL || "https://aihubmix.com/v1",
-  aiApiKey: process.env.AI_API_KEY ?? process.env.OPENAI_API_KEY ?? "",
+  aiBaseUrl:
+    process.env.AI_BASE_URL ||
+    (!hasAnyAiEnv && hasAnyLegacyOpenAiEnv
+      ? "https://api.openai.com/v1"
+      : "https://aihubmix.com/v1"),
+  aiApiKey: process.env.AI_API_KEY || process.env.OPENAI_API_KEY || "",
   aiChatModel:
     process.env.AI_CHAT_MODEL ||
     process.env.OPENAI_CHAT_MODEL ||
     "gemini-2.5-flash-lite",
   aiSttModel:
-    process.env.AI_STT_MODEL ?? process.env.OPENAI_STT_MODEL ?? "whisper-1",
+    process.env.AI_STT_MODEL || process.env.OPENAI_STT_MODEL || "whisper-1",
   aiTtsModel:
-    process.env.AI_TTS_MODEL ??
-    process.env.OPENAI_TTS_MODEL ??
+    process.env.AI_TTS_MODEL ||
+    process.env.OPENAI_TTS_MODEL ||
     "gpt-4o-mini-tts",
   s3Endpoint: process.env.S3_ENDPOINT ?? "",
   s3Region: process.env.S3_REGION || "ap-hongkong",
@@ -34,14 +51,14 @@ export const ENV = {
   smtpPass: process.env.SMTP_PASS ?? "",
   smtpFromEmail:
     process.env.SMTP_FROM_EMAIL ?? process.env.RESEND_FROM_EMAIL ?? "",
-  openAiApiKey: process.env.AI_API_KEY ?? process.env.OPENAI_API_KEY ?? "",
+  openAiApiKey: process.env.AI_API_KEY || process.env.OPENAI_API_KEY || "",
   openAiChatModel:
-    process.env.AI_CHAT_MODEL ?? process.env.OPENAI_CHAT_MODEL ?? "gpt-4o-mini",
+    process.env.AI_CHAT_MODEL || process.env.OPENAI_CHAT_MODEL || "gpt-4o-mini",
   openAiSttModel:
-    process.env.AI_STT_MODEL ?? process.env.OPENAI_STT_MODEL ?? "whisper-1",
+    process.env.AI_STT_MODEL || process.env.OPENAI_STT_MODEL || "whisper-1",
   openAiTtsModel:
-    process.env.AI_TTS_MODEL ??
-    process.env.OPENAI_TTS_MODEL ??
+    process.env.AI_TTS_MODEL ||
+    process.env.OPENAI_TTS_MODEL ||
     "gpt-4o-mini-tts",
   awsRegion: process.env.S3_REGION ?? process.env.AWS_REGION ?? "ap-southeast-1",
   awsS3Bucket: process.env.S3_BUCKET ?? process.env.AWS_S3_BUCKET ?? "",
