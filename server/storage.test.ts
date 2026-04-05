@@ -78,7 +78,7 @@ describe("storage", () => {
     );
   });
 
-  it("requires S3_ENDPOINT when using provider-neutral storage envs", async () => {
+  it("requires S3_ENDPOINT when provider-neutral credentials are used", async () => {
     vi.stubEnv("S3_ENDPOINT", "");
     vi.stubEnv("S3_BUCKET", "ai-tutor-audio-1250000000");
     vi.stubEnv("S3_ACCESS_KEY_ID", "key-id");
@@ -91,14 +91,14 @@ describe("storage", () => {
     );
   });
 
-  it("falls back to legacy AWS envs including AWS_REGION when S3 envs are unset", async () => {
+  it("falls back to legacy AWS envs when only the bucket has been renamed", async () => {
     vi.stubEnv("S3_ENDPOINT", "");
     vi.stubEnv("S3_REGION", "");
-    vi.stubEnv("S3_BUCKET", "");
+    vi.stubEnv("S3_BUCKET", "renamed-bucket");
     vi.stubEnv("S3_ACCESS_KEY_ID", "");
     vi.stubEnv("S3_SECRET_ACCESS_KEY", "");
     vi.stubEnv("AWS_REGION", "us-east-2");
-    vi.stubEnv("AWS_S3_BUCKET", "ai-tutor-audio-1250000000");
+    vi.stubEnv("AWS_S3_BUCKET", "");
     vi.stubEnv("AWS_ACCESS_KEY_ID", "key-id");
     vi.stubEnv("AWS_SECRET_ACCESS_KEY", "secret-key");
     getSignedUrlMock.mockResolvedValue("https://storage.example.com/audio.mp3");

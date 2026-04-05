@@ -10,10 +10,8 @@ type StorageConfig = {
 let s3Client: S3Client | null = null;
 
 function getStorageConfig(): StorageConfig {
-  const hasProviderNeutralStorageEnv =
+  const hasExplicitProviderNeutralStorageEnv =
     Boolean(process.env.S3_ENDPOINT) ||
-    Boolean(process.env.S3_REGION) ||
-    Boolean(process.env.S3_BUCKET) ||
     Boolean(process.env.S3_ACCESS_KEY_ID) ||
     Boolean(process.env.S3_SECRET_ACCESS_KEY);
 
@@ -23,7 +21,7 @@ function getStorageConfig(): StorageConfig {
     Boolean(process.env.AWS_ACCESS_KEY_ID) ||
     Boolean(process.env.AWS_SECRET_ACCESS_KEY);
 
-  if (hasProviderNeutralStorageEnv) {
+  if (hasExplicitProviderNeutralStorageEnv) {
     if (
       !ENV.s3Endpoint ||
       !ENV.s3Region ||
