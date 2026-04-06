@@ -7,6 +7,7 @@ import { COOKIE_NAME } from "@shared/const";
 import { getRequiredMySqlPool } from "./mysql";
 import { ENV } from "./env";
 import { isValidSmtpPort, sendEmail } from "./email";
+import { createFixedWindowLimiter } from "./rateLimit";
 
 export type AuthIdentity = {
   id: string;
@@ -85,8 +86,34 @@ function createAuthInstance() {
 
 let authInstance: ReturnType<typeof createAuthInstance> | null = null;
 
+const magicLinkIpLimiter = createFixedWindowLimiter({
+  key: "magic-link-ip",
+  maxHits: 5,
+  windowMs: 60 * 60 * 1000,
+});
+
+const magicLinkEmailLimiter = createFixedWindowLimiter({
+  key: "magic-link-email",
+  maxHits: 3,
+  windowMs: 60 * 60 * 1000,
+});
+
 function normalizeOrigin(value: string) {
   return value.replace(/\/+$/, "");
+}
+
+function shouldRateLimitMagicLinkRequest(req: Request) {
+  if (req.method !== "POST") {
+    return false;
+  }
+
+  const normalizedPath = req.path.toLowerCase();
+
+  if (normalizedPath.includes("magic-link")) {
+    return true;
+  }
+
+  return typeof req.body?.email === "string";
 }
 
 function isAuthConfigured() {
@@ -200,6 +227,40 @@ function normalizeSessionPayload(payload: any): AuthSessionResult | null {
 }
 
 export function registerAuthRoutes(app: Express) {
+  app.use("/api/auth", (req, res, next) => {
+    if (!shouldRateLimitMagicLinkRequest(req)) {
+      next();
+      return;
+    }
+
+    const ip = req.ip || req.socket.remoteAddress || "unknown";
+    const ipHit = magicLinkIpLimiter.consume(ip);
+
+    if (!ipHit.allowed) {
+      res.status(429).json({
+        error: "Too many auth requests. Please try again later.",
+      });
+      return;
+    }
+
+    const email =
+      typeof req.body?.email === "string"
+        ? req.body.email.trim().toLowerCase()
+        : "";
+
+    if (email) {
+      const emailHit = magicLinkEmailLimiter.consume(email);
+      if (!emailHit.allowed) {
+        res.status(429).json({
+          error: "Too many login emails sent. Please try again later.",
+        });
+        return;
+      }
+    }
+
+    next();
+  });
+
   app.all("/api/auth/*", async (req, res) => {
     if (!isAuthConfigured()) {
       res.status(503).json({
@@ -244,4 +305,9 @@ export async function signOutCurrentSession(req: Request): Promise<void> {
   } catch (error) {
     console.warn("[Auth] Failed to sign out session", error);
   }
+}
+
+export function resetAuthRateLimitersForTest() {
+  magicLinkIpLimiter.reset();
+  magicLinkEmailLimiter.reset();
 }

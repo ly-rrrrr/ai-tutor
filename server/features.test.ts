@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { appRouter } from "./routers";
+import { appRouter, resetTrialRateLimitersForTest } from "./routers";
 import type { TrpcContext } from "./_core/context";
 
 // Mock the LLM module
@@ -228,6 +228,11 @@ function createPublicContext(): TrpcContext {
   };
 }
 
+beforeEach(() => {
+  vi.clearAllMocks();
+  resetTrialRateLimitersForTest();
+});
+
 describe("Scenario Routes", () => {
   it("scenario.list returns all active scenarios", async () => {
     const ctx = createPublicContext();
@@ -396,6 +401,27 @@ describe("Chat Routes", () => {
       caller.chat.send({ conversationId: 42, content: "Hello" })
     ).rejects.toThrow();
   });
+
+  it("chat.send rejects requests after the trial limit is exhausted", async () => {
+    const ctx = createAuthContext();
+    const caller = appRouter.createCaller(ctx);
+
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+      await expect(
+        caller.chat.send({
+          conversationId: 42,
+          content: `message-${attempt}`,
+        })
+      ).resolves.toHaveProperty("content");
+    }
+
+    await expect(
+      caller.chat.send({
+        conversationId: 42,
+        content: "message-over-limit",
+      })
+    ).rejects.toThrow("Chat rate limit exceeded");
+  });
 });
 
 describe("Voice Routes", () => {
@@ -448,6 +474,27 @@ describe("Voice Routes", () => {
       expect(result).toHaveProperty('overallScore');
     }
   });
+
+  it("voice.uploadAudio rejects requests after the trial limit is exhausted", async () => {
+    const ctx = createAuthContext();
+    const caller = appRouter.createCaller(ctx);
+
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      await expect(
+        caller.voice.uploadAudio({
+          audioBase64: "dGVzdA==",
+          mimeType: "audio/webm",
+        })
+      ).resolves.toHaveProperty("audioObjectKey");
+    }
+
+    await expect(
+      caller.voice.uploadAudio({
+        audioBase64: "dGVzdA==",
+        mimeType: "audio/webm",
+      })
+    ).rejects.toThrow("Voice upload rate limit exceeded");
+  });
 });
 
 describe("TTS Routes", () => {
@@ -485,6 +532,29 @@ describe("TTS Routes", () => {
     await expect(
       caller.voice.tts({ text: "Hello", voice: "nova", speed: 1.0 })
     ).rejects.toThrow();
+  });
+
+  it("voice.tts rejects requests after the trial limit is exhausted", async () => {
+    const ctx = createAuthContext();
+    const caller = appRouter.createCaller(ctx);
+
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+      await expect(
+        caller.voice.tts({
+          text: `tts-${attempt}`,
+          voice: "nova",
+          speed: 1,
+        })
+      ).resolves.toHaveProperty("audioObjectKey");
+    }
+
+    await expect(
+      caller.voice.tts({
+        text: "tts-over-limit",
+        voice: "nova",
+        speed: 1,
+      })
+    ).rejects.toThrow("TTS rate limit exceeded");
   });
 });
 

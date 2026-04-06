@@ -20,15 +20,29 @@ function nextId() { return ++_memNextId; };
 export async function getDb() {
   if (!_db) {
     const pool = getMySqlPool();
-    if (!pool) return null;
+    if (!pool) {
+      if (ENV.isProduction) {
+        throw new Error("DATABASE_URL is required in production");
+      }
+      return null;
+    }
     try {
       _db = drizzle(pool);
     } catch (error) {
       console.warn("[Database] Failed to connect:", error);
+      if (ENV.isProduction) {
+        throw error;
+      }
       _db = null;
     }
   }
   return _db;
+}
+
+function assertDatabaseFallbackAllowed() {
+  if (ENV.isProduction) {
+    throw new Error("Database fallback is disabled in production");
+  }
 }
 
 // ==================== User Helpers ====================
@@ -123,13 +137,19 @@ const MOCK_SCENARIOS: Scenario[] = [
 
 export async function getAllScenarios(): Promise<Scenario[]> {
   const db = await getDb();
-  if (!db) return MOCK_SCENARIOS;
+  if (!db) {
+    assertDatabaseFallbackAllowed();
+    return MOCK_SCENARIOS;
+  }
   return db.select().from(scenarios).where(eq(scenarios.isActive, 1)).orderBy(scenarios.sortOrder);
 }
 
 export async function getScenarioById(id: number): Promise<Scenario | undefined> {
   const db = await getDb();
-  if (!db) return MOCK_SCENARIOS.find(s => s.id === id);
+  if (!db) {
+    assertDatabaseFallbackAllowed();
+    return MOCK_SCENARIOS.find(s => s.id === id);
+  }
   const result = await db.select().from(scenarios).where(eq(scenarios.id, id)).limit(1);
   return result[0];
 }
@@ -139,6 +159,7 @@ export async function getScenarioById(id: number): Promise<Scenario | undefined>
 export async function createConversation(data: InsertConversation): Promise<number> {
   const db = await getDb();
   if (!db) {
+    assertDatabaseFallbackAllowed();
     const id = nextId();
     const now = new Date();
     _memConversations.set(id, { id, userId: data.userId ?? 1, scenarioId: data.scenarioId ?? null, title: data.title ?? "Free Conversation", status: data.status ?? "active", messageCount: 0, duration: 0, avgScore: null, feedback: null, grammarIssues: null, createdAt: now, updatedAt: now } as unknown as Conversation);
@@ -149,13 +170,17 @@ export async function createConversation(data: InsertConversation): Promise<numb
 }
 export async function getConversationById(id: number): Promise<Conversation | undefined> {
   const db = await getDb();
-  if (!db) return _memConversations.get(id);
+  if (!db) {
+    assertDatabaseFallbackAllowed();
+    return _memConversations.get(id);
+  }
   const result = await db.select().from(conversations).where(eq(conversations.id, id)).limit(1);
   return result[0];
 }
 export async function getUserConversations(userId: number, limit = 20, offset = 0) {
   const db = await getDb();
   if (!db) {
+    assertDatabaseFallbackAllowed();
     return Array.from(_memConversations.values())
       .filter(c => c.userId === userId)
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
@@ -170,6 +195,7 @@ export async function getUserConversations(userId: number, limit = 20, offset = 
 export async function updateConversation(id: number, data: Partial<InsertConversation>) {
   const db = await getDb();
   if (!db) {
+    assertDatabaseFallbackAllowed();
     const conv = _memConversations.get(id);
     if (conv) _memConversations.set(id, { ...conv, ...data, updatedAt: new Date() } as Conversation);
     return;
@@ -180,6 +206,7 @@ export async function updateConversation(id: number, data: Partial<InsertConvers
 export async function createMessage(data: InsertMessage): Promise<number> {
   const db = await getDb();
   if (!db) {
+    assertDatabaseFallbackAllowed();
     const id = nextId();
     const now = new Date();
     _memMessages.set(id, {
@@ -204,6 +231,7 @@ export async function createMessage(data: InsertMessage): Promise<number> {
 export async function getConversationMessages(conversationId: number): Promise<MessageRecord[]> {
   const db = await getDb();
   if (!db) {
+    assertDatabaseFallbackAllowed();
     return Array.from(_memMessages.values())
       .filter(m => m.conversationId === conversationId)
       .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
@@ -215,6 +243,7 @@ export async function getConversationMessages(conversationId: number): Promise<M
 export async function getMessageById(id: number): Promise<MessageRecord | undefined> {
   const db = await getDb();
   if (!db) {
+    assertDatabaseFallbackAllowed();
     return _memMessages.get(id);
   }
   const result = await db.select().from(messages).where(eq(messages.id, id)).limit(1);
@@ -224,6 +253,7 @@ export async function getMessageById(id: number): Promise<MessageRecord | undefi
 export async function updateMessage(id: number, data: Partial<InsertMessage>) {
   const db = await getDb();
   if (!db) {
+    assertDatabaseFallbackAllowed();
     const msg = _memMessages.get(id);
     if (msg) _memMessages.set(id, { ...msg, ...data } as MessageRecord);
     return;

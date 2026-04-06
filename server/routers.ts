@@ -9,6 +9,7 @@ import { textToSpeech } from "./_core/tts";
 import { storageExists, storageGet, storagePut } from "./storage";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
+import { createFixedWindowLimiter } from "./_core/rateLimit";
 import {
   getAllScenarios,
   getScenarioById,
@@ -25,6 +26,24 @@ import {
   getUserDashboardStats,
   updateUserStats,
 } from "./db";
+
+const chatLimiter = createFixedWindowLimiter({
+  key: "chat",
+  maxHits: 60,
+  windowMs: 60 * 60 * 1000,
+});
+
+const voiceLimiter = createFixedWindowLimiter({
+  key: "voice",
+  maxHits: 20,
+  windowMs: 60 * 60 * 1000,
+});
+
+const ttsLimiter = createFixedWindowLimiter({
+  key: "tts",
+  maxHits: 40,
+  windowMs: 60 * 60 * 1000,
+});
 
 // Helper: strip markdown code fences that some LLM providers wrap around JSON output
 function parseJsonContent<T>(content: string): T {
@@ -52,6 +71,24 @@ async function resolveMessageAudio<T extends { audioObjectKey?: string | null; a
 
 function normalizeAudioObjectKey(key: string): string {
   return key.replace(/^\/+/, "");
+}
+
+function getRequesterIdentity(ctx: {
+  user: { id: number };
+  req: { ip?: string | undefined };
+}) {
+  return `${ctx.user.id}:${ctx.req.ip ?? "unknown"}`;
+}
+
+function assertAllowed(
+  limiter: ReturnType<typeof createFixedWindowLimiter>,
+  identity: string,
+  message: string
+) {
+  const result = limiter.consume(identity);
+  if (!result.allowed) {
+    throw new TRPCError({ code: "TOO_MANY_REQUESTS", message });
+  }
 }
 
 async function assertOwnedUploadedAudio(
@@ -272,6 +309,12 @@ export const appRouter = router({
         audioContentType: z.string().optional(),
       }))
       .mutation(async ({ input, ctx }) => {
+        assertAllowed(
+          chatLimiter,
+          getRequesterIdentity(ctx),
+          "Chat rate limit exceeded"
+        );
+
         const conv = await getConversationById(input.conversationId);
         if (!conv || conv.userId !== ctx.user.id) {
           throw new TRPCError({ code: "NOT_FOUND" });
@@ -589,6 +632,12 @@ Return JSON with this exact structure:
         mimeType: z.string().default("audio/webm"),
       }))
       .mutation(async ({ input, ctx }) => {
+        assertAllowed(
+          voiceLimiter,
+          getRequesterIdentity(ctx),
+          "Voice upload rate limit exceeded"
+        );
+
         const buffer = Buffer.from(input.audioBase64, "base64");
         const ext = input.mimeType.includes("webm") ? "webm" : input.mimeType.includes("wav") ? "wav" : "mp3";
         const key = `audio/${ctx.user.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
@@ -629,6 +678,12 @@ Return JSON with this exact structure:
         messageId: z.number().optional(),
       }))
       .mutation(async ({ input, ctx }) => {
+        assertAllowed(
+          ttsLimiter,
+          getRequesterIdentity(ctx),
+          "TTS rate limit exceeded"
+        );
+
         const result = await textToSpeech({
           text: input.text,
           voice: input.voice,
@@ -851,3 +906,9 @@ function getTipForLevel(level: string): string {
 }
 
 export type AppRouter = typeof appRouter;
+
+export function resetTrialRateLimitersForTest() {
+  chatLimiter.reset();
+  voiceLimiter.reset();
+  ttsLimiter.reset();
+}
