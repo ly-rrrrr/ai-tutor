@@ -157,6 +157,10 @@ export const messages = mysqlTable("messages", {
   content: text("content").notNull(),
   /** Audio URL if message was spoken */
   audioUrl: varchar("audioUrl", { length: 500 }),
+  /** Durable storage object key for uploaded or generated audio */
+  audioObjectKey: varchar("audioObjectKey", { length: 500 }),
+  /** Content type for the stored audio object */
+  audioContentType: varchar("audioContentType", { length: 255 }),
   /** Pronunciation score for user messages (0-100) */
   pronunciationScore: float("pronunciationScore"),
   /** Detailed pronunciation feedback JSON */

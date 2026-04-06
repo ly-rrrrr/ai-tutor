@@ -6,7 +6,7 @@ import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { invokeLLM } from "./_core/llm";
 import { transcribeAudio } from "./_core/voiceTranscription";
 import { textToSpeech } from "./_core/tts";
-import { storagePut } from "./storage";
+import { storageExists, storageGet, storagePut } from "./storage";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import {
@@ -19,6 +19,7 @@ import {
   createMessage,
   updateMessage,
   getConversationMessages,
+  getMessageById,
   upsertLearningRecord,
   getUserLearningRecords,
   getUserDashboardStats,
@@ -32,6 +33,68 @@ function parseJsonContent<T>(content: string): T {
     .replace(/\s*```\s*$/i, "")
     .trim();
   return JSON.parse(stripped) as T;
+}
+
+async function resolveMessageAudio<T extends { audioObjectKey?: string | null; audioUrl?: string | null }>(
+  message: T
+): Promise<T> {
+  if (!message.audioObjectKey) {
+    return message;
+  }
+
+  try {
+    const { url } = await storageGet(message.audioObjectKey);
+    return { ...message, audioUrl: url };
+  } catch {
+    return message;
+  }
+}
+
+function normalizeAudioObjectKey(key: string): string {
+  return key.replace(/^\/+/, "");
+}
+
+async function assertOwnedUploadedAudio(
+  userId: number,
+  audioObjectKey: string,
+  audioContentType?: string
+): Promise<{ audioObjectKey: string; audioContentType: string }> {
+  const normalizedAudioObjectKey = normalizeAudioObjectKey(audioObjectKey);
+
+  if (!normalizedAudioObjectKey.startsWith(`audio/${userId}/`)) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "Audio upload does not belong to the current user" });
+  }
+
+  if (!audioContentType || !audioContentType.startsWith("audio/")) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "Audio content type is required for uploaded audio" });
+  }
+
+  if (!(await storageExists(normalizedAudioObjectKey))) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "Uploaded audio object was not found" });
+  }
+
+  return {
+    audioObjectKey: normalizedAudioObjectKey,
+    audioContentType,
+  };
+}
+
+async function assertOwnedMessage(
+  userId: number,
+  messageId: number,
+  expectedRole: "user" | "assistant"
+) {
+  const message = await getMessageById(messageId);
+  if (!message || message.role !== expectedRole) {
+    throw new TRPCError({ code: "NOT_FOUND", message: "Message not found" });
+  }
+
+  const conversation = await getConversationById(message.conversationId);
+  if (!conversation || conversation.userId !== userId) {
+    throw new TRPCError({ code: "NOT_FOUND", message: "Message not found" });
+  }
+
+  return message;
 }
 
 export const appRouter = router({
@@ -124,7 +187,9 @@ export const appRouter = router({
         if (!conv || conv.userId !== ctx.user.id) {
           throw new TRPCError({ code: "NOT_FOUND", message: "Conversation not found" });
         }
-        const msgs = await getConversationMessages(input.id);
+        const msgs = await Promise.all(
+          (await getConversationMessages(input.id)).map(resolveMessageAudio)
+        );
         return { conversation: conv, messages: msgs };
       }),
 
@@ -203,6 +268,8 @@ export const appRouter = router({
         conversationId: z.number(),
         content: z.string().min(1),
         audioUrl: z.string().optional(),
+        audioObjectKey: z.string().optional(),
+        audioContentType: z.string().optional(),
       }))
       .mutation(async ({ input, ctx }) => {
         const conv = await getConversationById(input.conversationId);
@@ -210,12 +277,22 @@ export const appRouter = router({
           throw new TRPCError({ code: "NOT_FOUND" });
         }
 
+        const userAudioFields = input.audioObjectKey
+          ? await assertOwnedUploadedAudio(
+              ctx.user.id,
+              input.audioObjectKey,
+              input.audioContentType
+            )
+          : {
+              audioUrl: input.audioUrl,
+            };
+
          // Save user message
         const userMessageId = await createMessage({
           conversationId: input.conversationId,
           role: "user",
           content: input.content,
-          audioUrl: input.audioUrl,
+          ...userAudioFields,
         });
         // Get conversation history
         const history = await getConversationMessages(input.conversationId);
@@ -238,7 +315,7 @@ export const appRouter = router({
         const result = await invokeLLM({ messages: llmMessages });
         const assistantContent = result.choices[0]?.message?.content as string || "I'm sorry, could you repeat that?";
         // Save assistant message
-        await createMessage({
+        const assistantMessageId = await createMessage({
           conversationId: input.conversationId,
           role: "assistant",
           content: assistantContent,
@@ -247,7 +324,7 @@ export const appRouter = router({
         await updateConversation(input.conversationId, {
           messageCount: (conv.messageCount ?? 0) + 2,
         });
-        return { content: assistantContent, userMessageId };
+        return { content: assistantContent, userMessageId, assistantMessageId };
       }),
 
     // Analyze user message for grammar and expression improvements
@@ -257,7 +334,11 @@ export const appRouter = router({
         conversationId: z.number(),
         messageId: z.number().optional(),
       }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ input, ctx }) => {
+        if (input.messageId) {
+          await assertOwnedMessage(ctx.user.id, input.messageId, "user");
+        }
+
         try {
           const result = await invokeLLM({
             messages: [
@@ -511,8 +592,12 @@ Return JSON with this exact structure:
         const buffer = Buffer.from(input.audioBase64, "base64");
         const ext = input.mimeType.includes("webm") ? "webm" : input.mimeType.includes("wav") ? "wav" : "mp3";
         const key = `audio/${ctx.user.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-        const { url } = await storagePut(key, buffer, input.mimeType);
-        return { audioUrl: url };
+        const storedAudio = await storagePut(key, buffer, input.mimeType);
+        return {
+          audioUrl: storedAudio.url,
+          audioObjectKey: storedAudio.key,
+          audioContentType: input.mimeType,
+        };
       }),
 
     transcribe: protectedProcedure
@@ -541,6 +626,7 @@ Return JSON with this exact structure:
         text: z.string().min(1).max(4096),
         voice: z.enum(["alloy", "echo", "fable", "onyx", "nova", "shimmer"]).default("nova"),
         speed: z.number().min(0.25).max(4.0).default(1.0),
+        messageId: z.number().optional(),
       }))
       .mutation(async ({ input, ctx }) => {
         const result = await textToSpeech({
@@ -556,8 +642,19 @@ Return JSON with this exact structure:
         }
         // Upload to S3 and return URL
         const key = `tts/${ctx.user.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.mp3`;
-        const { url } = await storagePut(key, result.audioBuffer, result.contentType);
-        return { audioUrl: url };
+        const storedAudio = await storagePut(key, result.audioBuffer, result.contentType);
+        if (input.messageId) {
+          await assertOwnedMessage(ctx.user.id, input.messageId, "assistant");
+          await updateMessage(input.messageId, {
+            audioObjectKey: storedAudio.key,
+            audioContentType: result.contentType,
+          });
+        }
+        return {
+          audioUrl: storedAudio.url,
+          audioObjectKey: storedAudio.key,
+          audioContentType: result.contentType,
+        };
       }),
 
     // Pronunciation assessment using LLM
@@ -568,7 +665,11 @@ Return JSON with this exact structure:
         conversationId: z.number(),
         messageId: z.number().optional(),
       }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ input, ctx }) => {
+        if (input.messageId) {
+          await assertOwnedMessage(ctx.user.id, input.messageId, "user");
+        }
+
         try {
           const prompt = input.expectedText
             ? `The user was supposed to say: "${input.expectedText}"\nThey actually said: "${input.spokenText}"\n\nAssess their pronunciation accuracy.`

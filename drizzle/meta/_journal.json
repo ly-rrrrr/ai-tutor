@@ -20,7 +20,14 @@
       "idx": 2,
       "version": "5",
       "when": 1775289600000,
-      "tag": "0002_auth_cutover",
+      "tag": "0002_detach_from_manus",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1775443357896,
+      "tag": "0003__tmp_probe_custom",
       "breakpoints": true
     }
   ]

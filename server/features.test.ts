@@ -43,10 +43,15 @@ vi.mock("./_core/email", () => ({
 
 // Mock the storage module
 vi.mock("./storage", () => ({
-  storagePut: vi.fn().mockResolvedValue({
-    key: "audio/1/test.webm",
-    url: "https://storage.example.com/audio/1/test.webm",
-  }),
+  storagePut: vi.fn().mockImplementation(async (key: string) => ({
+    key,
+    url: `https://storage.example.com/${key}`,
+  })),
+  storageGet: vi.fn().mockImplementation(async (key: string) => ({
+    key,
+    url: `https://storage.example.com/${key}`,
+  })),
+  storageExists: vi.fn().mockResolvedValue(true),
 }));
 
 // Mock the db module
@@ -149,7 +154,16 @@ vi.mock("./db", () => ({
   createMessage: vi.fn().mockResolvedValue(1),
   getConversationMessages: vi.fn().mockResolvedValue([
     { id: 1, conversationId: 42, role: "system", content: "You are an airport staff member.", createdAt: new Date() },
-    { id: 2, conversationId: 42, role: "assistant", content: "Welcome! How can I help you today?", createdAt: new Date() },
+    {
+      id: 2,
+      conversationId: 42,
+      role: "assistant",
+      content: "Welcome! How can I help you today?",
+      audioUrl: null,
+      audioObjectKey: "tts/1/existing.mp3",
+      audioContentType: "audio/mpeg",
+      createdAt: new Date(),
+    },
   ]),
   upsertLearningRecord: vi.fn().mockResolvedValue(undefined),
   getUserLearningRecords: vi.fn().mockResolvedValue([]),
@@ -163,6 +177,13 @@ vi.mock("./db", () => ({
   }),
   updateUserStats: vi.fn().mockResolvedValue(undefined),
   updateMessage: vi.fn().mockResolvedValue(undefined),
+  getMessageById: vi.fn().mockImplementation(async (id: number) => ({
+    id,
+    conversationId: 42,
+    role: id === 2 ? "assistant" : "user",
+    content: "Persisted message",
+    createdAt: new Date(),
+  })),
   upsertUser: vi.fn().mockResolvedValue(undefined),
   getUserByAuthUserId: vi.fn().mockResolvedValue(undefined),
 }));
@@ -274,6 +295,8 @@ describe("Conversation Routes", () => {
     expect(result.conversation).toBeDefined();
     expect(result.conversation?.title).toBe("Airport Check-in");
     expect(result.messages).toHaveLength(2);
+    expect(result.messages[1]?.audioObjectKey).toBe("tts/1/existing.mp3");
+    expect(result.messages[1]?.audioUrl).toBe("https://storage.example.com/tts/1/existing.mp3");
   });
 
   it("conversation.getById throws NOT_FOUND for non-existent conversation", async () => {
@@ -313,6 +336,7 @@ describe("Chat Routes", () => {
     });
 
     expect(result).toHaveProperty("userMessageId");
+    expect(result).toHaveProperty("assistantMessageId");
     expect(typeof result.userMessageId).toBe("number");
   });
 
@@ -344,6 +368,26 @@ describe("Chat Routes", () => {
     expect(typeof result.overallScore).toBe("number");
   });
 
+  it("chat.analyze rejects message ids outside the caller conversation", async () => {
+    const { getMessageById } = await import("./db");
+    vi.mocked(getMessageById).mockResolvedValueOnce({
+      id: 999,
+      conversationId: 404,
+      role: "user",
+      content: "Other user's message",
+      createdAt: new Date(),
+    } as never);
+
+    const ctx = createAuthContext();
+    const caller = appRouter.createCaller(ctx);
+
+    await expect(caller.chat.analyze({
+      userMessage: "I go to airport yesterday",
+      conversationId: 42,
+      messageId: 999,
+    })).rejects.toThrow("Message not found");
+  });
+
   it("chat.send requires authentication", async () => {
     const ctx = createPublicContext();
     const caller = appRouter.createCaller(ctx);
@@ -355,7 +399,7 @@ describe("Chat Routes", () => {
 });
 
 describe("Voice Routes", () => {
-  it("voice.uploadAudio uploads audio and returns URL", async () => {
+  it("voice.uploadAudio uploads audio and returns durable metadata", async () => {
     const ctx = createAuthContext();
     const caller = appRouter.createCaller(ctx);
     const result = await caller.voice.uploadAudio({
@@ -364,7 +408,10 @@ describe("Voice Routes", () => {
     });
 
     expect(result).toHaveProperty("audioUrl");
+    expect(result).toHaveProperty("audioObjectKey");
+    expect(result).toHaveProperty("audioContentType", "audio/webm");
     expect(result.audioUrl).toContain("https://");
+    expect(result.audioObjectKey).toMatch(/^audio\/1\/.+\.webm$/);
   });
 
   it("voice.transcribe returns transcribed text", async () => {
@@ -414,6 +461,8 @@ describe("TTS Routes", () => {
     });
 
     expect(result).toHaveProperty("audioUrl");
+    expect(result).toHaveProperty("audioObjectKey");
+    expect(result).toHaveProperty("audioContentType", "audio/mpeg");
     expect(result.audioUrl).toContain("https://");
   });
 

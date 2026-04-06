@@ -21,10 +21,15 @@ vi.mock("@aws-sdk/client-s3", () => {
     constructor(public input: unknown) {}
   }
 
+  class MockHeadObjectCommand {
+    constructor(public input: unknown) {}
+  }
+
   return {
     S3Client: MockS3Client,
     PutObjectCommand: MockPutObjectCommand,
     GetObjectCommand: MockGetObjectCommand,
+    HeadObjectCommand: MockHeadObjectCommand,
   };
 });
 
@@ -157,5 +162,21 @@ describe("storage", () => {
     await expect(storageGet("audio.mp3")).rejects.toThrow(
       "S3 storage is not configured. Set AWS_REGION, AWS_S3_BUCKET, AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY."
     );
+  });
+
+  it("storageExists returns false for missing objects", async () => {
+    vi.stubEnv("S3_ENDPOINT", "https://cos.ap-hongkong.myqcloud.com");
+    vi.stubEnv("S3_REGION", "ap-hongkong");
+    vi.stubEnv("S3_BUCKET", "ai-tutor-audio-1250000000");
+    vi.stubEnv("S3_ACCESS_KEY_ID", "key-id");
+    vi.stubEnv("S3_SECRET_ACCESS_KEY", "secret-key");
+    sendMock.mockRejectedValueOnce({
+      name: "NotFound",
+      $metadata: { httpStatusCode: 404 },
+    });
+
+    const { storageExists } = await import("./storage");
+
+    await expect(storageExists("missing.mp3")).resolves.toBe(false);
   });
 });

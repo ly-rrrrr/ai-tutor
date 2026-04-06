@@ -182,7 +182,20 @@ export async function createMessage(data: InsertMessage): Promise<number> {
   if (!db) {
     const id = nextId();
     const now = new Date();
-    _memMessages.set(id, { id, conversationId: data.conversationId ?? 0, role: data.role ?? "user", content: data.content ?? "", audioUrl: data.audioUrl ?? null, pronunciationScore: data.pronunciationScore ?? null, pronunciationFeedback: data.pronunciationFeedback ?? null, grammarCorrections: null, expressionSuggestions: null, createdAt: now } as unknown as MessageRecord);
+    _memMessages.set(id, {
+      id,
+      conversationId: data.conversationId ?? 0,
+      role: data.role ?? "user",
+      content: data.content ?? "",
+      audioUrl: data.audioUrl ?? null,
+      audioObjectKey: data.audioObjectKey ?? null,
+      audioContentType: data.audioContentType ?? null,
+      pronunciationScore: data.pronunciationScore ?? null,
+      pronunciationFeedback: data.pronunciationFeedback ?? null,
+      grammarCorrections: data.grammarCorrections ?? null,
+      expressionSuggestions: data.expressionSuggestions ?? null,
+      createdAt: now,
+    } as unknown as MessageRecord);
     return id;
   }
   const result = await db.insert(messages).values(data);
@@ -198,6 +211,14 @@ export async function getConversationMessages(conversationId: number): Promise<M
   return db.select().from(messages)
     .where(eq(messages.conversationId, conversationId))
     .orderBy(messages.createdAt);
+}
+export async function getMessageById(id: number): Promise<MessageRecord | undefined> {
+  const db = await getDb();
+  if (!db) {
+    return _memMessages.get(id);
+  }
+  const result = await db.select().from(messages).where(eq(messages.id, id)).limit(1);
+  return result[0];
 }
 // ==================== Message Update Helper ====================
 export async function updateMessage(id: number, data: Partial<InsertMessage>) {

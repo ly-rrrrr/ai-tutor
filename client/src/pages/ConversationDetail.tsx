@@ -45,7 +45,9 @@ type DisplayMessage = {
   content: string;
   feedback?: FeedbackData | null;
   pronunciation?: PronunciationData | null;
-  ttsUrl?: string | null;
+  audioUrl?: string | null;
+  audioObjectKey?: string | null;
+  audioContentType?: string | null;
   translation?: string | null;
 };
 
@@ -97,8 +99,10 @@ export default function ConversationDetail() {
   const sendMessage = trpc.chat.send.useMutation({
     onSuccess: (result) => {
       setDisplayMessages(prev => [...prev, {
+        id: result.assistantMessageId,
         role: "assistant",
         content: result.content,
+        audioUrl: null,
       }]);
       scrollToBottom();
     },
@@ -133,6 +137,9 @@ export default function ConversationDetail() {
             id: m.id,
             role: m.role as "user" | "assistant",
             content: m.content,
+            audioUrl: m.audioUrl ?? null,
+            audioObjectKey: m.audioObjectKey ?? null,
+            audioContentType: m.audioContentType ?? null,
           }))
       );
     }
@@ -191,7 +198,7 @@ export default function ConversationDetail() {
       .replace(/`([^`]+)`/g, "$1")
       .trim();
 
-    const cachedUrl = displayMessages[msgIdx]?.ttsUrl;
+    const cachedUrl = displayMessages[msgIdx]?.audioUrl;
     if (cachedUrl) {
       playAudioUrl(cachedUrl, msgIdx);
       return;
@@ -226,10 +233,22 @@ export default function ConversationDetail() {
   const tryBackendTTS = async (msgIdx: number, cleanText: string) => {
     setTtsLoadingIdx(msgIdx);
     try {
-      const result = await ttsMutation.mutateAsync({ text: cleanText, voice: "nova", speed: 0.9 });
+      const result = await ttsMutation.mutateAsync({
+        text: cleanText,
+        voice: "nova",
+        speed: 0.9,
+        messageId: displayMessages[msgIdx]?.id,
+      });
       setDisplayMessages(prev => {
         const updated = [...prev];
-        if (updated[msgIdx]) updated[msgIdx] = { ...updated[msgIdx], ttsUrl: result.audioUrl };
+        if (updated[msgIdx]) {
+          updated[msgIdx] = {
+            ...updated[msgIdx],
+            audioUrl: result.audioUrl,
+            audioObjectKey: result.audioObjectKey,
+            audioContentType: result.audioContentType,
+          };
+        }
         return updated;
       });
       playAudioUrl(result.audioUrl, msgIdx);
@@ -445,16 +464,31 @@ export default function ConversationDetail() {
         reader.onloadend = async () => {
           const base64 = (reader.result as string).split(",")[1];
           try {
-            const { audioUrl } = await uploadAudio.mutateAsync({ audioBase64: base64, mimeType: "audio/webm" });
+            const { audioUrl, audioObjectKey, audioContentType } = await uploadAudio.mutateAsync({
+              audioBase64: base64,
+              mimeType: "audio/webm",
+            });
             const { text } = await transcribe.mutateAsync({ audioUrl, language: "en" });
             if (!text || text.trim().length === 0) {
               toast.error("Could not recognize speech. Please try again.");
               return;
             }
             const msgIndex = displayMessages.length;
-            setDisplayMessages(prev => [...prev, { role: "user", content: text }]);
+            setDisplayMessages(prev => [...prev, {
+              role: "user",
+              content: text,
+              audioUrl,
+              audioObjectKey,
+              audioContentType,
+            }]);
             scrollToBottom();
-            sendMessage.mutateAsync({ conversationId, content: text, audioUrl }).then(result => {
+            sendMessage.mutateAsync({
+              conversationId,
+              content: text,
+              audioUrl,
+              audioObjectKey,
+              audioContentType,
+            }).then(result => {
               const messageId = result.userMessageId;
               analyzeMessage.mutate({ userMessage: text, conversationId, messageId }, {
                 onSuccess: (feedback) => {
