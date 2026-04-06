@@ -35,6 +35,12 @@ vi.mock("./_core/voiceTranscription", () => ({
   }),
 }));
 
+// Mock the email module
+vi.mock("./_core/email", () => ({
+  sendEmail: vi.fn().mockResolvedValue(undefined),
+  assertEmailConfigured: vi.fn(),
+}));
+
 // Mock the storage module
 vi.mock("./storage", () => ({
   storagePut: vi.fn().mockResolvedValue({

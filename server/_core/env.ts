@@ -52,8 +52,7 @@ export const ENV = {
   smtpPort: Number(process.env.SMTP_PORT ?? "587"),
   smtpUser: process.env.SMTP_USER ?? "",
   smtpPass: process.env.SMTP_PASS ?? "",
-  smtpFromEmail:
-    process.env.SMTP_FROM_EMAIL ?? process.env.RESEND_FROM_EMAIL ?? "",
+  smtpFromEmail: process.env.SMTP_FROM_EMAIL ?? "",
   openAiApiKey: process.env.AI_API_KEY || process.env.OPENAI_API_KEY || "",
   openAiChatModel:
     process.env.AI_CHAT_MODEL || process.env.OPENAI_CHAT_MODEL || "gpt-4o-mini",
