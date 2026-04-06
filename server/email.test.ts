@@ -38,6 +38,14 @@ describe("email", () => {
     expect(() => assertEmailConfigured()).toThrow("SMTP_PASS is not configured");
   });
 
+  it("throws when smtp port is invalid", async () => {
+    process.env.SMTP_PORT = "not-a-number";
+
+    const { assertEmailConfigured } = await import("./_core/email");
+
+    expect(() => assertEmailConfigured()).toThrow("SMTP_PORT is invalid");
+  });
+
   it("sends email through smtp with normalized recipients", async () => {
     const nodemailer = await import("nodemailer");
     const { sendEmail } = await import("./_core/email");

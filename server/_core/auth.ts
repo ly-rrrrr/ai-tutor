@@ -6,7 +6,7 @@ import { magicLink } from "better-auth/plugins";
 import { COOKIE_NAME } from "@shared/const";
 import { getRequiredMySqlPool } from "./mysql";
 import { ENV } from "./env";
-import { sendEmail } from "./email";
+import { isValidSmtpPort, sendEmail } from "./email";
 
 export type AuthIdentity = {
   id: string;
@@ -94,6 +94,7 @@ function isAuthConfigured() {
     ENV.databaseUrl &&
       ENV.betterAuthSecret &&
       ENV.smtpHost &&
+      isValidSmtpPort(ENV.smtpPort) &&
       ENV.smtpUser &&
       ENV.smtpPass &&
       ENV.smtpFromEmail

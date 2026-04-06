@@ -10,6 +10,10 @@ export type SendEmailParams = {
 
 let transport: ReturnType<typeof nodemailer.createTransport> | null = null;
 
+export function isValidSmtpPort(value: number): boolean {
+  return Number.isInteger(value) && value > 0 && value <= 65535;
+}
+
 export function assertEmailConfigured(): void {
   const required = [
     ["SMTP_HOST", ENV.smtpHost],
@@ -22,6 +26,10 @@ export function assertEmailConfigured(): void {
     if (!value) {
       throw new Error(`${name} is not configured`);
     }
+  }
+
+  if (!isValidSmtpPort(ENV.smtpPort)) {
+    throw new Error("SMTP_PORT is invalid");
   }
 }
 
