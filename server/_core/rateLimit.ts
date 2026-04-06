@@ -19,9 +19,18 @@ export function createFixedWindowLimiter({
 }): FixedWindowLimiter {
   const entries = new Map<string, { count: number; resetAt: number }>();
 
+  function pruneExpired(now: number) {
+    entries.forEach((entry, cacheKey) => {
+      if (entry.resetAt <= now) {
+        entries.delete(cacheKey);
+      }
+    });
+  }
+
   return {
     consume(identity: string) {
       const now = Date.now();
+      pruneExpired(now);
       const cacheKey = `${key}:${identity}`;
       const existing = entries.get(cacheKey);
 

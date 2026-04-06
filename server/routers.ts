@@ -75,9 +75,9 @@ function normalizeAudioObjectKey(key: string): string {
 
 function getRequesterIdentity(ctx: {
   user: { id: number };
-  req: { ip?: string | undefined };
+  req: { ip?: string | undefined; socket?: { remoteAddress?: string | undefined } };
 }) {
-  return `${ctx.user.id}:${ctx.req.ip ?? "unknown"}`;
+  return `${ctx.user.id}:${ctx.req.ip ?? ctx.req.socket?.remoteAddress ?? "unknown"}`;
 }
 
 function assertAllowed(
@@ -684,6 +684,10 @@ Return JSON with this exact structure:
           "TTS rate limit exceeded"
         );
 
+        if (input.messageId) {
+          await assertOwnedMessage(ctx.user.id, input.messageId, "assistant");
+        }
+
         const result = await textToSpeech({
           text: input.text,
           voice: input.voice,
@@ -699,7 +703,6 @@ Return JSON with this exact structure:
         const key = `tts/${ctx.user.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.mp3`;
         const storedAudio = await storagePut(key, result.audioBuffer, result.contentType);
         if (input.messageId) {
-          await assertOwnedMessage(ctx.user.id, input.messageId, "assistant");
           await updateMessage(input.messageId, {
             audioObjectKey: storedAudio.key,
             audioContentType: result.contentType,

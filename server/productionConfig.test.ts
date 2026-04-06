@@ -19,6 +19,18 @@ function setRequiredProductionEnv() {
   vi.stubEnv("SMTP_FROM_EMAIL", "noreply@example.com");
 }
 
+function setLegacyAwsStorageEnv() {
+  vi.stubEnv("S3_ENDPOINT", "");
+  vi.stubEnv("S3_REGION", "");
+  vi.stubEnv("S3_BUCKET", "");
+  vi.stubEnv("S3_ACCESS_KEY_ID", "");
+  vi.stubEnv("S3_SECRET_ACCESS_KEY", "");
+  vi.stubEnv("AWS_REGION", "ap-hongkong");
+  vi.stubEnv("AWS_S3_BUCKET", "legacy-bucket");
+  vi.stubEnv("AWS_ACCESS_KEY_ID", "legacy-key");
+  vi.stubEnv("AWS_SECRET_ACCESS_KEY", "legacy-secret");
+}
+
 describe("production config", () => {
   beforeEach(() => {
     vi.resetModules();
@@ -36,6 +48,23 @@ describe("production config", () => {
     const { assertProductionConfig } = await import("./_core/productionConfig");
 
     expect(() => assertProductionConfig()).toThrow("AI_API_KEY");
+  });
+
+  it("fails fast when S3 region is missing in production", async () => {
+    vi.stubEnv("S3_REGION", "");
+    vi.stubEnv("AWS_REGION", "");
+
+    const { assertProductionConfig } = await import("./_core/productionConfig");
+
+    expect(() => assertProductionConfig()).toThrow("S3_REGION");
+  });
+
+  it("accepts the legacy AWS storage configuration path in production", async () => {
+    setLegacyAwsStorageEnv();
+
+    const { assertProductionConfig } = await import("./_core/productionConfig");
+
+    expect(() => assertProductionConfig()).not.toThrow();
   });
 
   it("does not throw outside production", async () => {

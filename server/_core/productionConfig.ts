@@ -1,6 +1,23 @@
 import { isValidSmtpPort } from "./email";
 import { ENV } from "./env";
 
+function hasProviderNeutralStorageEnv() {
+  return Boolean(
+    process.env.S3_ENDPOINT ||
+      process.env.S3_ACCESS_KEY_ID ||
+      process.env.S3_SECRET_ACCESS_KEY
+  );
+}
+
+function hasLegacyAwsStorageEnv() {
+  return Boolean(
+    process.env.AWS_REGION ||
+      process.env.AWS_S3_BUCKET ||
+      process.env.AWS_ACCESS_KEY_ID ||
+      process.env.AWS_SECRET_ACCESS_KEY
+  );
+}
+
 export function assertProductionConfig() {
   if (!ENV.isProduction) {
     return;
@@ -24,20 +41,50 @@ export function assertProductionConfig() {
     missing.push("AI_API_KEY");
   }
 
-  if (!ENV.s3Endpoint) {
-    missing.push("S3_ENDPOINT");
-  }
+  if (hasProviderNeutralStorageEnv()) {
+    if (!ENV.s3Endpoint) {
+      missing.push("S3_ENDPOINT");
+    }
 
-  if (!ENV.s3Bucket) {
-    missing.push("S3_BUCKET");
-  }
+    if (!(process.env.S3_REGION || process.env.AWS_REGION)) {
+      missing.push("S3_REGION");
+    }
 
-  if (!ENV.s3AccessKeyId) {
-    missing.push("S3_ACCESS_KEY_ID");
-  }
+    if (!ENV.s3Bucket) {
+      missing.push("S3_BUCKET");
+    }
 
-  if (!ENV.s3SecretAccessKey) {
-    missing.push("S3_SECRET_ACCESS_KEY");
+    if (!ENV.s3AccessKeyId) {
+      missing.push("S3_ACCESS_KEY_ID");
+    }
+
+    if (!ENV.s3SecretAccessKey) {
+      missing.push("S3_SECRET_ACCESS_KEY");
+    }
+  } else if (hasLegacyAwsStorageEnv()) {
+    if (!(process.env.AWS_REGION || process.env.S3_REGION)) {
+      missing.push("AWS_REGION");
+    }
+
+    if (!ENV.awsS3Bucket) {
+      missing.push("AWS_S3_BUCKET");
+    }
+
+    if (!ENV.awsAccessKeyId) {
+      missing.push("AWS_ACCESS_KEY_ID");
+    }
+
+    if (!ENV.awsSecretAccessKey) {
+      missing.push("AWS_SECRET_ACCESS_KEY");
+    }
+  } else {
+    missing.push(
+      "S3_ENDPOINT",
+      "S3_REGION",
+      "S3_BUCKET",
+      "S3_ACCESS_KEY_ID",
+      "S3_SECRET_ACCESS_KEY"
+    );
   }
 
   if (!ENV.smtpHost) {

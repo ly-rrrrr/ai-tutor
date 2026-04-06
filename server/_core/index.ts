@@ -9,6 +9,7 @@ import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
 import { seedScenariosIfEmpty } from "../db";
 import { assertProductionConfig } from "./productionConfig";
+import { ENV } from "./env";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -34,7 +35,7 @@ async function startServer() {
 
   const app = express();
   const server = createServer(app);
-  app.set("trust proxy", 1);
+  app.set("trust proxy", ENV.isProduction ? "loopback" : false);
 
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
@@ -76,4 +77,7 @@ async function startServer() {
   );
 }
 
-startServer().catch(console.error);
+startServer().catch(error => {
+  console.error(error);
+  process.exit(1);
+});
