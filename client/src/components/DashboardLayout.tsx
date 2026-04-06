@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/sidebar";
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
+import { appRoutes, getCurrentAppPath, isActiveAppRoute } from "@/lib/routes";
 import { MessageCircle, BookOpen, BarChart3, History, Compass, LogOut, PanelLeft, GraduationCap } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
@@ -28,11 +29,11 @@ import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
 import { Button } from "./ui/button";
 
 const menuItems = [
-  { icon: Compass, label: "Explore", path: "~/app" },
-  { icon: MessageCircle, label: "Conversation", path: "~/app/chat" },
-  { icon: BookOpen, label: "Courses", path: "~/app/courses" },
-  { icon: BarChart3, label: "Dashboard", path: "~/app/dashboard" },
-  { icon: History, label: "History", path: "~/app/history" },
+  { icon: Compass, label: "Explore", path: appRoutes.explore() },
+  { icon: MessageCircle, label: "Conversation", path: appRoutes.chat() },
+  { icon: BookOpen, label: "Courses", path: appRoutes.courses() },
+  { icon: BarChart3, label: "Dashboard", path: appRoutes.dashboard() },
+  { icon: History, label: "History", path: appRoutes.history() },
 ];
 
 const SIDEBAR_WIDTH_KEY = "sidebar-width";
@@ -118,12 +119,9 @@ function DashboardLayoutContent({
   const isCollapsed = state === "collapsed";
   const [isResizing, setIsResizing] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
-  // With wouter nest, location is relative (e.g. "/" or "/chat"). Menu paths use "~/app/..." absolute form.
-  // We need to compare by stripping the "~" prefix from menu paths.
-  const absLocation = "/app" + (location === "/" ? "" : location);
+  const currentPath = getCurrentAppPath(location);
   const activeMenuItem = menuItems.find(item => {
-    const itemAbs = item.path.replace(/^~/, "");
-    return absLocation === itemAbs || (itemAbs !== "/app" && absLocation.startsWith(itemAbs));
+    return isActiveAppRoute(location, item.path);
   });
   const isMobile = useIsMobile();
 
@@ -190,8 +188,7 @@ function DashboardLayoutContent({
           <SidebarContent className="gap-0">
             <SidebarMenu className="px-2 py-1">
               {menuItems.map(item => {
-                const itemAbs = item.path.replace(/^~/, "");
-                const isActive = absLocation === itemAbs || (itemAbs !== "/app" && absLocation.startsWith(itemAbs));
+                const isActive = isActiveAppRoute(location, item.path);
                 return (
                   <SidebarMenuItem key={item.path}>
                     <SidebarMenuButton

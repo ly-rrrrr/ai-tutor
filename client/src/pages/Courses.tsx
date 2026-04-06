@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { appRoutes } from "@/lib/routes";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
 
@@ -25,7 +26,7 @@ export default function Courses() {
   const { data: scenarios, isLoading } = trpc.scenario.list.useQuery();
   const createConversation = trpc.conversation.create.useMutation({
     onSuccess: (data) => {
-      setLocation(`~/app/chat/${data.conversationId}`);
+      setLocation(appRoutes.conversation(data.conversationId));
     },
     onError: () => toast.error("Failed to start conversation"),
   });

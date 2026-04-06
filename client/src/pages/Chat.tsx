@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { appRoutes } from "@/lib/routes";
 import { MessageCircle, ArrowRight } from "lucide-react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
@@ -33,7 +34,7 @@ export default function Chat() {
   const { data: scenarios, isLoading } = trpc.scenario.list.useQuery();
   const createConversation = trpc.conversation.create.useMutation({
     onSuccess: (data) => {
-      setLocation(`~/app/chat/${data.conversationId}`);
+      setLocation(appRoutes.conversation(data.conversationId));
     },
     onError: () => {
       toast.error("Failed to start conversation");

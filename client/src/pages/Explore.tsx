@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { appRoutes } from "@/lib/routes";
 import { MessageCircle, ArrowRight, Sparkles, TrendingUp, BookOpen } from "lucide-react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
@@ -28,7 +29,7 @@ export default function Explore() {
   const { data: recommendations, isLoading: recLoading } = trpc.dashboard.recommendations.useQuery();
   const createConversation = trpc.conversation.create.useMutation({
     onSuccess: (data) => {
-      setLocation(`~/app/chat/${data.conversationId}`);
+      setLocation(appRoutes.conversation(data.conversationId));
     },
     onError: () => {
       toast.error("Failed to start conversation");
@@ -75,7 +76,7 @@ export default function Explore() {
 
         <Card
           className="cursor-pointer hover:shadow-md transition-all hover:border-primary/40 group"
-          onClick={() => setLocation("~/app/courses")}
+          onClick={() => setLocation(appRoutes.courses())}
         >
           <CardContent className="flex items-center gap-4 p-5">
             <div className="h-12 w-12 rounded-xl bg-chart-4/10 flex items-center justify-center shrink-0 group-hover:bg-chart-4/20 transition-colors">

@@ -21,6 +21,7 @@ import { useLocation, useParams } from "wouter";
 import { toast } from "sonner";
 import { Streamdown } from "streamdown";
 import { cn } from "@/lib/utils";
+import { appRoutes } from "@/lib/routes";
 import ClickableText from "@/components/ClickableText";
 import WordDictPanel from "@/components/WordDictPanel";
 
@@ -552,7 +553,7 @@ export default function ConversationDetail() {
     <div className="flex flex-col h-[calc(100vh-6rem)] max-w-4xl">
       {/* Header */}
       <div className="flex items-center gap-3 pb-4 border-b mb-4 shrink-0">
-        <Button variant="ghost" size="icon" onClick={() => setLocation("~/app/chat")}>
+        <Button variant="ghost" size="icon" onClick={() => setLocation(appRoutes.chat())}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div className="flex-1 min-w-0">

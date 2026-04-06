@@ -2,6 +2,7 @@ import { trpc } from "@/lib/trpc";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { appRoutes } from "@/lib/routes";
 import { MessageCircle, Clock, ArrowRight } from "lucide-react";
 import { useLocation } from "wouter";
 
@@ -34,7 +35,7 @@ export default function HistoryPage() {
             <Card
               key={conv.id}
               className="cursor-pointer hover:shadow-md transition-all hover:border-primary/30 group"
-              onClick={() => setLocation(`~/app/chat/${conv.id}`)}
+              onClick={() => setLocation(appRoutes.conversation(conv.id))}
             >
               <CardContent className="flex items-center gap-4 p-4">
                 <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
