@@ -13,6 +13,7 @@ build/
 .env.development.local
 .env.test.local
 .env.production.local
+.env.production
 
 # IDE and editor files
 .vscode/
@@ -102,6 +103,7 @@ tmp/
 temp/
 _tmp_*
 .worktrees/
+docker-compose.local.yml
 
 # Database
 *.db
