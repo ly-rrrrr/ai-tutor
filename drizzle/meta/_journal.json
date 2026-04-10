@@ -29,6 +29,13 @@
       "when": 1775443357896,
       "tag": "0003__tmp_probe_custom",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1775838388209,
+      "tag": "0004_auth_usernames",
+      "breakpoints": true
     }
   ]
 }

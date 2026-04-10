@@ -84,7 +84,7 @@ function createAuthContext(): TrpcContext {
     authUserId: "test-user-001",
     email: "test@example.com",
     name: "Test Learner",
-    loginMethod: "magic_link",
+    loginMethod: "password",
     role: "user",
     level: "A2",
     totalPracticeSeconds: 0,

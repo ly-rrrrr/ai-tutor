@@ -33,7 +33,7 @@ export async function createContext(
       authUserId: currentSession.user.id,
       email: currentSession.user.email,
       name: currentSession.user.name,
-      loginMethod: "magic_link",
+      loginMethod: "password",
       lastSignedIn: new Date(),
     });
 

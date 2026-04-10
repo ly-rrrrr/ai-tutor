@@ -84,7 +84,7 @@ export async function upsertUser(user: InsertUser): Promise<void> {
       updateSet.role = 'admin';
     }
     if (!values.loginMethod) {
-      values.loginMethod = "magic_link";
+      values.loginMethod = "password";
     }
     if (!values.lastSignedIn) {
       values.lastSignedIn = new Date();

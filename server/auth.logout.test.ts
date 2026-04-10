@@ -19,7 +19,7 @@ function createAuthContext(): { ctx: TrpcContext; clearedCookies: CookieCall[] }
     authUserId: "sample-user",
     email: "sample@example.com",
     name: "Sample User",
-    loginMethod: "magic_link",
+    loginMethod: "password",
     role: "user",
     level: "A2",
     totalPracticeSeconds: 0,
