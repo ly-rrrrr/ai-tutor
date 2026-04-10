@@ -104,6 +104,7 @@ temp/
 _tmp_*
 .worktrees/
 docker-compose.local.yml
+.docker/
 
 # Database
 *.db

@@ -117,15 +117,38 @@ function shouldRateLimitMagicLinkRequest(req: Request) {
 }
 
 function isAuthConfigured() {
-  return Boolean(
-    ENV.databaseUrl &&
-      ENV.betterAuthSecret &&
+  if (!ENV.databaseUrl || !ENV.betterAuthSecret) {
+    return false;
+  }
+
+  const emailProvider = ENV.emailProvider.trim().toLowerCase();
+
+  if (emailProvider === "disabled") {
+    return false;
+  }
+
+  if (emailProvider === "smtp") {
+    return Boolean(
       ENV.smtpHost &&
-      isValidSmtpPort(ENV.smtpPort) &&
-      ENV.smtpUser &&
-      ENV.smtpPass &&
-      ENV.smtpFromEmail
-  );
+        isValidSmtpPort(ENV.smtpPort) &&
+        ENV.smtpUser &&
+        ENV.smtpPass &&
+        ENV.emailFrom
+    );
+  }
+
+  if (emailProvider === "tencent_ses_api") {
+    return Boolean(
+      ENV.tencentSesSecretId &&
+        ENV.tencentSesSecretKey &&
+        ENV.tencentSesRegion &&
+        ENV.emailFrom &&
+        (ENV.tencentSesAllowSimpleContent ||
+          ENV.tencentSesMagicLinkTemplateId)
+    );
+  }
+
+  return false;
 }
 
 function escapeHtml(value: string) {
@@ -168,25 +191,32 @@ function toWebHeaders(headers: IncomingHttpHeaders): Headers {
 async function sendMagicLinkEmail(email: string, url: string) {
   const safeUrl = escapeHtml(url);
   const appName = "AI Tutor";
-  const loginText = `Sign in to ${appName}`;
+  const loginText = `${appName} 登录验证`;
 
   await sendEmail({
     to: email,
     subject: loginText,
-    text: `Use this link to sign in to ${appName}: ${url}`,
+    text: `请使用此链接登录 ${appName}：${url}`,
+    templateAlias: "magic_link",
+    templateData: {
+      appName,
+      loginText,
+      url,
+      expiresInMinutes: 10,
+    },
     html: `
       <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#111827;">
         <h1 style="font-size:24px;margin:0 0 16px;">${loginText}</h1>
         <p style="font-size:15px;line-height:1.6;margin:0 0 16px;">
-          Click the button below to sign in. This link expires in 10 minutes.
+          点击下方按钮完成登录。该链接将在 10 分钟后失效。
         </p>
         <p style="margin:24px 0;">
           <a href="${safeUrl}" style="display:inline-block;padding:12px 18px;background:#111827;color:#ffffff;text-decoration:none;border-radius:10px;">
-            Sign in
+            立即登录
           </a>
         </p>
         <p style="font-size:13px;line-height:1.6;color:#6b7280;margin:0;">
-          If the button does not work, copy and paste this URL into your browser:
+          如果按钮无法点击，请将以下链接复制到浏览器打开：
         </p>
         <p style="font-size:13px;line-height:1.6;word-break:break-all;color:#2563eb;">${safeUrl}</p>
       </div>
@@ -265,7 +295,7 @@ export function registerAuthRoutes(app: Express) {
     if (!isAuthConfigured()) {
       res.status(503).json({
         error:
-          "Authentication is not configured. Set DATABASE_URL, BETTER_AUTH_SECRET, SMTP_HOST, SMTP_USER, SMTP_PASS, and SMTP_FROM_EMAIL.",
+          "Authentication is temporarily disabled. Configure EMAIL_PROVIDER and the matching email provider settings to enable sign-in.",
       });
       return;
     }

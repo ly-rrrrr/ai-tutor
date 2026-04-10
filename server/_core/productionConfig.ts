@@ -18,6 +18,10 @@ function hasLegacyAwsStorageEnv() {
   );
 }
 
+function getEmailProvider() {
+  return ENV.emailProvider.trim().toLowerCase();
+}
+
 export function assertProductionConfig() {
   if (!ENV.isProduction) {
     return;
@@ -87,24 +91,57 @@ export function assertProductionConfig() {
     );
   }
 
-  if (!ENV.smtpHost) {
-    missing.push("SMTP_HOST");
-  }
+  switch (getEmailProvider()) {
+    case "disabled":
+      break;
+    case "smtp":
+      if (!ENV.emailFrom) {
+        missing.push("EMAIL_FROM");
+      }
 
-  if (!ENV.smtpUser) {
-    missing.push("SMTP_USER");
-  }
+      if (!ENV.smtpHost) {
+        missing.push("SMTP_HOST");
+      }
 
-  if (!ENV.smtpPass) {
-    missing.push("SMTP_PASS");
-  }
+      if (!ENV.smtpUser) {
+        missing.push("SMTP_USER");
+      }
 
-  if (!ENV.smtpFromEmail) {
-    missing.push("SMTP_FROM_EMAIL");
-  }
+      if (!ENV.smtpPass) {
+        missing.push("SMTP_PASS");
+      }
 
-  if (!isValidSmtpPort(ENV.smtpPort)) {
-    missing.push("SMTP_PORT");
+      if (!isValidSmtpPort(ENV.smtpPort)) {
+        missing.push("SMTP_PORT");
+      }
+      break;
+    case "tencent_ses_api":
+      if (!ENV.emailFrom) {
+        missing.push("EMAIL_FROM");
+      }
+
+      if (!ENV.tencentSesSecretId) {
+        missing.push("TENCENT_SES_SECRET_ID");
+      }
+
+      if (!ENV.tencentSesSecretKey) {
+        missing.push("TENCENT_SES_SECRET_KEY");
+      }
+
+      if (!ENV.tencentSesRegion) {
+        missing.push("TENCENT_SES_REGION");
+      }
+
+      if (
+        !ENV.tencentSesAllowSimpleContent &&
+        !ENV.tencentSesMagicLinkTemplateId
+      ) {
+        missing.push("TENCENT_SES_MAGIC_LINK_TEMPLATE_ID");
+      }
+      break;
+    default:
+      missing.push("EMAIL_PROVIDER(disabled|smtp|tencent_ses_api)");
+      break;
   }
 
   if (missing.length > 0) {
