@@ -88,6 +88,7 @@ CADDY_CONFIG_DIR=/home/yea/data/ai-tutor/caddy/config
 CADDY_HTTP_BIND=127.0.0.1:80
 
 EMAIL_PROVIDER=disabled
+GUEST_ACCESS_ENABLED=true
 
 CLOUDFLARE_TUNNEL_TOKEN=把 Cloudflare Tunnel 页面复制出来的 token 填到这里
 ```
@@ -95,6 +96,7 @@ CLOUDFLARE_TUNNEL_TOKEN=把 Cloudflare Tunnel 页面复制出来的 token 填到
 说明：
 
 - `EMAIL_PROVIDER=disabled` 允许站点先上线，登录邮件后续再恢复
+- `GUEST_ACCESS_ENABLED=true` 时，每个浏览器会自动获得一个独立 guest 身份，可以继续使用会话、语音、历史和看板等核心功能
 - `CADDY_HTTP_BIND=127.0.0.1:80` 只把本机 HTTP 入口绑到回环地址，避免再依赖公网入站
 
 ## 首次启动
@@ -124,6 +126,7 @@ cp .env.production.example .env.production
 - `AI_API_KEY`
 - `S3_*`
 - `EMAIL_PROVIDER=disabled`
+- `GUEST_ACCESS_ENABLED=true`
 - `CLOUDFLARE_TUNNEL_TOKEN`
 
 ### 3. 检查 Compose 渲染结果
@@ -210,3 +213,16 @@ EMAIL_PROVIDER=disabled
 ```
 
 这是预期行为。表示站点先上线，邮件登录功能等待 SMTP 或腾讯 SES 模板审核完成后再恢复。
+
+如果你希望在邮件登录恢复前继续使用核心功能，再加上：
+
+```env
+GUEST_ACCESS_ENABLED=true
+```
+
+行为说明：
+
+- 每个浏览器会获得单独的 guest cookie，不会共用同一个账号
+- guest 用户默认是普通用户，不具备 admin 权限
+- 点击退出会清空当前 guest cookie；下次访问会分配一个新的 guest 身份
+- 这是临时过渡方案，邮件登录恢复后建议关闭

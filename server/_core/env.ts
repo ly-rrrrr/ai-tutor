@@ -48,6 +48,7 @@ export const ENV = {
   appOrigin: process.env.APP_ORIGIN ?? "http://localhost:3000",
   databaseUrl: process.env.DATABASE_URL ?? "",
   betterAuthSecret: process.env.BETTER_AUTH_SECRET ?? "",
+  guestAccessEnabled: parseBooleanEnv(process.env.GUEST_ACCESS_ENABLED),
   adminEmail: process.env.ADMIN_EMAIL?.trim().toLowerCase() ?? "",
   nodeEnv: process.env.NODE_ENV ?? "development",
   isProduction: process.env.NODE_ENV === "production",

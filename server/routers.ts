@@ -1,5 +1,5 @@
 import { COOKIE_NAME } from "@shared/const";
-import { getSessionCookieOptions } from "./_core/cookies";
+import { clearGuestCookie, getSessionCookieOptions } from "./_core/cookies";
 import { signOutCurrentSession } from "./_core/auth";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
@@ -142,6 +142,7 @@ export const appRouter = router({
       await signOutCurrentSession(ctx.req);
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
+      clearGuestCookie(ctx.res, ctx.req);
       return { success: true } as const;
     }),
   }),
