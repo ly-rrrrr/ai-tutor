@@ -92,8 +92,8 @@ Local service flow remains:
 Operational changes:
 
 - Add a `cloudflared` service to Docker Compose
-- Store Cloudflare tunnel credentials on disk outside the image
-- Route the production hostname `pumpkinwy.online` to the tunnel
+- Provide a Cloudflare tunnel token to the container at runtime
+- Route the production hostname `pumpkinwy.online` to the tunnel from Cloudflare
 - Keep `caddy` as the local HTTP entrypoint to avoid reworking local reverse-proxy assumptions
 
 ## Configuration Design
@@ -105,34 +105,22 @@ Add a `cloudflared` service with:
 - image `cloudflare/cloudflared`
 - restart policy `unless-stopped`
 - dependency on `caddy`
-- a mounted config file
-- a mounted credentials directory
-- command `tunnel --config /etc/cloudflared/config.yml run`
-
-### Cloudflared Config
-
-Create a config file that defines:
-
-- `tunnel`: Cloudflare tunnel UUID
-- `credentials-file`: mounted JSON credentials path
-- ingress rules:
-  - hostname `pumpkinwy.online` -> `http://caddy:80`
-  - catch-all `http_status:404`
+- command `tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}`
 
 ### Environment and Secrets
 
 Add deployment variables for:
 
-- Cloudflare tunnel ID
-- cloudflared credentials path on the host
+- Cloudflare tunnel token
+- host bind paths for local persistent directories
 
-Do not store Cloudflare account secrets in the repository.
+Do not store Cloudflare account secrets in the repository. The tunnel token stays in the local `.env.production` file only.
 
 ### DNS
 
 Move `pumpkinwy.online` authoritative DNS to Cloudflare.
 
-Cloudflare will then publish the tunnel hostname binding instead of exposing the origin directly by public A/AAAA records.
+Cloudflare will then publish the hostname binding for the tunnel instead of exposing the origin directly by public A/AAAA records.
 
 ## TLS Design
 
@@ -148,15 +136,15 @@ As part of this migration:
 ## Rollout Plan
 
 1. Keep the current application stack intact
-2. Add `cloudflared` service and config files
-3. Create a Cloudflare tunnel and obtain credentials
+2. Add `cloudflared` service to Docker Compose
+3. Create a Cloudflare tunnel and obtain the tunnel token
 4. Point `pumpkinwy.online` to the tunnel in Cloudflare
 5. Start `cloudflared`
 6. Verify public access over HTTPS
 
 ## Failure Handling
 
-- If tunnel auth is missing or invalid, the application stack still runs locally
+- If the tunnel token is missing or invalid, the application stack still runs locally
 - If Cloudflare Tunnel is down, local Docker services remain available for local diagnostics
 - If IPv4 remains blocked, the tunnel still works because it only requires outbound connectivity
 
