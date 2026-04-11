@@ -12,11 +12,17 @@ function setRequiredProductionEnv() {
   vi.stubEnv("S3_BUCKET", "ai-tutor-audio");
   vi.stubEnv("S3_ACCESS_KEY_ID", "access-key");
   vi.stubEnv("S3_SECRET_ACCESS_KEY", "secret-key");
+  vi.stubEnv("EMAIL_PROVIDER", "smtp");
+  vi.stubEnv("EMAIL_FROM", "noreply@example.com");
   vi.stubEnv("SMTP_HOST", "smtp.example.com");
   vi.stubEnv("SMTP_PORT", "587");
   vi.stubEnv("SMTP_USER", "smtp-user");
   vi.stubEnv("SMTP_PASS", "smtp-pass");
   vi.stubEnv("SMTP_FROM_EMAIL", "noreply@example.com");
+  vi.stubEnv("CLOUDFLARE_TURNSTILE_SITE_KEY", "turnstile-site-key");
+  vi.stubEnv("CLOUDFLARE_TURNSTILE_SECRET_KEY", "turnstile-secret-key");
+  vi.stubEnv("TENCENT_SES_VERIFICATION_OTP_TEMPLATE_ID", "1001");
+  vi.stubEnv("TENCENT_SES_MAGIC_LINK_TEMPLATE_ID", "");
 }
 
 function setLegacyAwsStorageEnv() {
@@ -59,8 +65,47 @@ describe("production config", () => {
     expect(() => assertProductionConfig()).toThrow("S3_REGION");
   });
 
+  it("fails fast when the Turnstile secret key is missing while auth is enabled", async () => {
+    vi.stubEnv("CLOUDFLARE_TURNSTILE_SECRET_KEY", "");
+
+    const { assertProductionConfig } = await import("./_core/productionConfig");
+
+    expect(() => assertProductionConfig()).toThrow(
+      "CLOUDFLARE_TURNSTILE_SECRET_KEY"
+    );
+  });
+
   it("accepts the legacy AWS storage configuration path in production", async () => {
     setLegacyAwsStorageEnv();
+
+    const { assertProductionConfig } = await import("./_core/productionConfig");
+
+    expect(() => assertProductionConfig()).not.toThrow();
+  });
+
+  it("accepts disabled email delivery in production", async () => {
+    vi.stubEnv("EMAIL_PROVIDER", "disabled");
+    vi.stubEnv("EMAIL_FROM", "");
+    vi.stubEnv("SMTP_HOST", "");
+    vi.stubEnv("SMTP_USER", "");
+    vi.stubEnv("SMTP_PASS", "");
+    vi.stubEnv("SMTP_FROM_EMAIL", "");
+
+    const { assertProductionConfig } = await import("./_core/productionConfig");
+
+    expect(() => assertProductionConfig()).not.toThrow();
+  });
+
+  it("accepts Tencent SES API email delivery in production", async () => {
+    vi.stubEnv("EMAIL_PROVIDER", "tencent_ses_api");
+    vi.stubEnv("EMAIL_FROM", "noreply@example.com");
+    vi.stubEnv("SMTP_HOST", "");
+    vi.stubEnv("SMTP_USER", "");
+    vi.stubEnv("SMTP_PASS", "");
+    vi.stubEnv("TENCENT_SES_SECRET_ID", "secret-id");
+    vi.stubEnv("TENCENT_SES_SECRET_KEY", "secret-key");
+    vi.stubEnv("TENCENT_SES_REGION", "ap-guangzhou");
+    vi.stubEnv("TENCENT_SES_VERIFICATION_OTP_TEMPLATE_ID", "1001");
 
     const { assertProductionConfig } = await import("./_core/productionConfig");
 

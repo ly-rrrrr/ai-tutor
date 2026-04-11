@@ -1,4 +1,8 @@
-import type { CookieOptions, Request } from "express";
+import { ONE_YEAR_MS } from "@shared/const";
+import { parse as parseCookieHeader } from "cookie";
+import type { CookieOptions, Request, Response } from "express";
+
+export const GUEST_COOKIE_NAME = "ai_tutor_guest_id";
 
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
 
@@ -45,4 +49,34 @@ export function getSessionCookieOptions(
     sameSite: "lax",
     secure: isSecureRequest(req),
   };
+}
+
+export function getGuestCookieId(req: Request): string | null {
+  const cookieHeader = req.headers.cookie;
+
+  if (!cookieHeader) {
+    return null;
+  }
+
+  const guestId = parseCookieHeader(cookieHeader)[GUEST_COOKIE_NAME];
+
+  if (!guestId || !/^[A-Za-z0-9_-]+$/.test(guestId)) {
+    return null;
+  }
+
+  return guestId;
+}
+
+export function setGuestCookie(res: Response, req: Request, guestId: string) {
+  res.cookie(GUEST_COOKIE_NAME, guestId, {
+    ...getSessionCookieOptions(req),
+    maxAge: ONE_YEAR_MS,
+  });
+}
+
+export function clearGuestCookie(res: Response, req: Request) {
+  res.clearCookie(GUEST_COOKIE_NAME, {
+    ...getSessionCookieOptions(req),
+    maxAge: -1,
+  });
 }

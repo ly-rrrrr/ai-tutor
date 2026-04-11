@@ -18,6 +18,14 @@ function hasLegacyAwsStorageEnv() {
   );
 }
 
+function getEmailProvider() {
+  return ENV.emailProvider.trim().toLowerCase();
+}
+
+function isAuthEnabled() {
+  return getEmailProvider() !== "disabled";
+}
+
 export function assertProductionConfig() {
   if (!ENV.isProduction) {
     return;
@@ -39,6 +47,16 @@ export function assertProductionConfig() {
 
   if (!ENV.aiApiKey) {
     missing.push("AI_API_KEY");
+  }
+
+  if (isAuthEnabled()) {
+    if (!ENV.turnstileSiteKey) {
+      missing.push("CLOUDFLARE_TURNSTILE_SITE_KEY");
+    }
+
+    if (!ENV.turnstileSecretKey) {
+      missing.push("CLOUDFLARE_TURNSTILE_SECRET_KEY");
+    }
   }
 
   if (hasProviderNeutralStorageEnv()) {
@@ -87,24 +105,57 @@ export function assertProductionConfig() {
     );
   }
 
-  if (!ENV.smtpHost) {
-    missing.push("SMTP_HOST");
-  }
+  switch (getEmailProvider()) {
+    case "disabled":
+      break;
+    case "smtp":
+      if (!ENV.emailFrom) {
+        missing.push("EMAIL_FROM");
+      }
 
-  if (!ENV.smtpUser) {
-    missing.push("SMTP_USER");
-  }
+      if (!ENV.smtpHost) {
+        missing.push("SMTP_HOST");
+      }
 
-  if (!ENV.smtpPass) {
-    missing.push("SMTP_PASS");
-  }
+      if (!ENV.smtpUser) {
+        missing.push("SMTP_USER");
+      }
 
-  if (!ENV.smtpFromEmail) {
-    missing.push("SMTP_FROM_EMAIL");
-  }
+      if (!ENV.smtpPass) {
+        missing.push("SMTP_PASS");
+      }
 
-  if (!isValidSmtpPort(ENV.smtpPort)) {
-    missing.push("SMTP_PORT");
+      if (!isValidSmtpPort(ENV.smtpPort)) {
+        missing.push("SMTP_PORT");
+      }
+      break;
+    case "tencent_ses_api":
+      if (!ENV.emailFrom) {
+        missing.push("EMAIL_FROM");
+      }
+
+      if (!ENV.tencentSesSecretId) {
+        missing.push("TENCENT_SES_SECRET_ID");
+      }
+
+      if (!ENV.tencentSesSecretKey) {
+        missing.push("TENCENT_SES_SECRET_KEY");
+      }
+
+      if (!ENV.tencentSesRegion) {
+        missing.push("TENCENT_SES_REGION");
+      }
+
+      if (
+        !ENV.tencentSesAllowSimpleContent &&
+        !ENV.tencentSesVerificationOtpTemplateId
+      ) {
+        missing.push("TENCENT_SES_VERIFICATION_OTP_TEMPLATE_ID");
+      }
+      break;
+    default:
+      missing.push("EMAIL_PROVIDER(disabled|smtp|tencent_ses_api)");
+      break;
   }
 
   if (missing.length > 0) {

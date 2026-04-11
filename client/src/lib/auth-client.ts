@@ -1,5 +1,5 @@
 import { createAuthClient } from "better-auth/client";
-import { magicLinkClient } from "better-auth/client/plugins";
+import { emailOTPClient, usernameClient } from "better-auth/client/plugins";
 
 export const authClient = createAuthClient({
   baseURL: typeof window === "undefined" ? undefined : window.location.origin,
@@ -7,5 +7,5 @@ export const authClient = createAuthClient({
   fetchOptions: {
     credentials: "include",
   },
-  plugins: [magicLinkClient()],
+  plugins: [emailOTPClient(), usernameClient()],
 });

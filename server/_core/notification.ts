@@ -49,7 +49,7 @@ const validatePayload = (input: NotificationPayload): NotificationPayload => {
 };
 
 /**
- * Dispatches an admin notification email through SMTP.
+ * Dispatches an admin notification email through the configured email provider.
  */
 export async function notifyOwner(
   payload: NotificationPayload
@@ -69,7 +69,9 @@ export async function notifyOwner(
     throw new TRPCError({
       code: "INTERNAL_SERVER_ERROR",
       message:
-        error instanceof Error ? error.message : "SMTP email service is not configured.",
+        error instanceof Error
+          ? error.message
+          : "Email service is not configured.",
     });
   }
 
@@ -78,6 +80,11 @@ export async function notifyOwner(
       to: ENV.adminEmail,
       subject: title,
       text: content,
+      templateAlias: "admin_notification",
+      templateData: {
+        title,
+        content,
+      },
       html: `<pre style="font-family:Arial,sans-serif;white-space:pre-wrap;">${content}</pre>`,
     });
 

@@ -20,10 +20,35 @@ const defaultAiChatModel =
     ? "gpt-4o-mini"
     : "gemini-2.5-flash-lite";
 
+function parseBooleanEnv(value: string | undefined): boolean {
+  if (!value) {
+    return false;
+  }
+
+  return ["1", "true", "yes", "on"].includes(value.trim().toLowerCase());
+}
+
+function parseOptionalPositiveInteger(
+  value: string | undefined
+): number | null {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = Number(value);
+
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    return null;
+  }
+
+  return parsed;
+}
+
 export const ENV = {
   appOrigin: process.env.APP_ORIGIN ?? "http://localhost:3000",
   databaseUrl: process.env.DATABASE_URL ?? "",
   betterAuthSecret: process.env.BETTER_AUTH_SECRET ?? "",
+  guestAccessEnabled: parseBooleanEnv(process.env.GUEST_ACCESS_ENABLED),
   adminEmail: process.env.ADMIN_EMAIL?.trim().toLowerCase() ?? "",
   nodeEnv: process.env.NODE_ENV ?? "development",
   isProduction: process.env.NODE_ENV === "production",
@@ -52,7 +77,28 @@ export const ENV = {
   smtpPort: Number(process.env.SMTP_PORT ?? "587"),
   smtpUser: process.env.SMTP_USER ?? "",
   smtpPass: process.env.SMTP_PASS ?? "",
-  smtpFromEmail: process.env.SMTP_FROM_EMAIL ?? "",
+  smtpFromEmail: process.env.EMAIL_FROM ?? process.env.SMTP_FROM_EMAIL ?? "",
+  emailProvider: process.env.EMAIL_PROVIDER ?? "smtp",
+  emailFrom:
+    process.env.EMAIL_FROM ??
+    process.env.SMTP_FROM_EMAIL ??
+    process.env.RESEND_FROM_EMAIL ??
+    "",
+  emailReplyTo: process.env.EMAIL_REPLY_TO ?? "",
+  turnstileSiteKey: process.env.CLOUDFLARE_TURNSTILE_SITE_KEY ?? "",
+  turnstileSecretKey: process.env.CLOUDFLARE_TURNSTILE_SECRET_KEY ?? "",
+  tencentSesSecretId: process.env.TENCENT_SES_SECRET_ID ?? "",
+  tencentSesSecretKey: process.env.TENCENT_SES_SECRET_KEY ?? "",
+  tencentSesRegion: process.env.TENCENT_SES_REGION ?? "",
+  tencentSesAllowSimpleContent: parseBooleanEnv(
+    process.env.TENCENT_SES_ALLOW_SIMPLE_CONTENT
+  ),
+  tencentSesVerificationOtpTemplateId: parseOptionalPositiveInteger(
+    process.env.TENCENT_SES_VERIFICATION_OTP_TEMPLATE_ID
+  ),
+  tencentSesAdminNotificationTemplateId: parseOptionalPositiveInteger(
+    process.env.TENCENT_SES_ADMIN_NOTIFICATION_TEMPLATE_ID
+  ),
   openAiApiKey: process.env.AI_API_KEY || process.env.OPENAI_API_KEY || "",
   openAiChatModel:
     process.env.AI_CHAT_MODEL || process.env.OPENAI_CHAT_MODEL || "gpt-4o-mini",
@@ -72,5 +118,8 @@ export const ENV = {
     "",
   resendApiKey: process.env.RESEND_API_KEY ?? "",
   resendFromEmail:
-    process.env.RESEND_FROM_EMAIL ?? process.env.SMTP_FROM_EMAIL ?? "",
+    process.env.RESEND_FROM_EMAIL ??
+    process.env.EMAIL_FROM ??
+    process.env.SMTP_FROM_EMAIL ??
+    "",
 };

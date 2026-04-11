@@ -2,7 +2,7 @@ import type { Express, Request } from "express";
 import type { IncomingHttpHeaders } from "http";
 import { betterAuth } from "better-auth";
 import { toNodeHandler } from "better-auth/node";
-import { magicLink } from "better-auth/plugins";
+import { captcha, emailOTP, username } from "better-auth/plugins";
 import { COOKIE_NAME } from "@shared/const";
 import { getRequiredMySqlPool } from "./mysql";
 import { ENV } from "./env";
@@ -27,14 +27,40 @@ type AuthSessionResult = {
   session: AuthSessionInfo;
 };
 
+type VerificationOtpType =
+  | "sign-in"
+  | "email-verification"
+  | "forget-password"
+  | "change-email";
+
+const APP_NAME = "AI Tutor";
+const VERIFICATION_OTP_LOGIN_TEXT = "AI Tutor 邮箱验证码";
+const VERIFICATION_OTP_EXPIRES_IN_MINUTES = 10;
+const AUTH_RATE_LIMIT_PATHS = new Set([
+  "/sign-up/email",
+  "/sign-in/email",
+  "/sign-in/username",
+  "/sign-in/email-otp",
+  "/send-verification-email",
+  "/email-otp/send-verification-otp",
+  "/email-otp/check-verification-otp",
+  "/email-otp/verify-email",
+]);
+const CAPTCHA_AUTH_PATHS = new Set(["/sign-up/email"]);
+
 function createAuthInstance() {
   return betterAuth({
-    appName: "AI Tutor",
+    appName: APP_NAME,
     baseURL: normalizeOrigin(ENV.appOrigin),
     basePath: "/api/auth",
     secret: ENV.betterAuthSecret,
     trustedOrigins: [normalizeOrigin(ENV.appOrigin)],
     database: getRequiredMySqlPool(),
+    emailAndPassword: {
+      enabled: true,
+      autoSignIn: false,
+      requireEmailVerification: true,
+    },
     user: {
       modelName: "auth_users",
     },
@@ -74,11 +100,18 @@ function createAuthInstance() {
       },
     },
     plugins: [
-      magicLink({
-        expiresIn: 60 * 10,
-        sendMagicLink: async ({ email, url }) => {
-          await sendMagicLinkEmail(email, url);
+      username(),
+      emailOTP({
+        expiresIn: VERIFICATION_OTP_EXPIRES_IN_MINUTES * 60,
+        overrideDefaultEmailVerification: true,
+        sendVerificationOTP: async ({ email, otp, type }) => {
+          await sendVerificationOtpEmail(email, otp, type);
         },
+      }),
+      captcha({
+        provider: "cloudflare-turnstile",
+        secretKey: ENV.turnstileSecretKey,
+        endpoints: Array.from(CAPTCHA_AUTH_PATHS),
       }),
     ],
   });
@@ -86,14 +119,14 @@ function createAuthInstance() {
 
 let authInstance: ReturnType<typeof createAuthInstance> | null = null;
 
-const magicLinkIpLimiter = createFixedWindowLimiter({
-  key: "magic-link-ip",
+const authIpLimiter = createFixedWindowLimiter({
+  key: "auth-ip",
   maxHits: 5,
   windowMs: 60 * 60 * 1000,
 });
 
-const magicLinkEmailLimiter = createFixedWindowLimiter({
-  key: "magic-link-email",
+const authIdentityLimiter = createFixedWindowLimiter({
+  key: "auth-identity",
   maxHits: 3,
   windowMs: 60 * 60 * 1000,
 });
@@ -102,30 +135,51 @@ function normalizeOrigin(value: string) {
   return value.replace(/\/+$/, "");
 }
 
-function shouldRateLimitMagicLinkRequest(req: Request) {
+function shouldRateLimitAuthRequest(req: Request) {
   if (req.method !== "POST") {
     return false;
   }
 
-  const normalizedPath = req.path.toLowerCase();
-
-  if (normalizedPath.includes("magic-link")) {
-    return true;
-  }
-
-  return typeof req.body?.email === "string";
+  return AUTH_RATE_LIMIT_PATHS.has(req.path.toLowerCase().replace(/\/+$/, ""));
 }
 
 function isAuthConfigured() {
-  return Boolean(
-    ENV.databaseUrl &&
-      ENV.betterAuthSecret &&
+  if (!ENV.databaseUrl || !ENV.betterAuthSecret) {
+    return false;
+  }
+
+  const emailProvider = ENV.emailProvider.trim().toLowerCase();
+
+  if (emailProvider === "disabled") {
+    return false;
+  }
+
+  if (!ENV.turnstileSecretKey) {
+    return false;
+  }
+
+  if (emailProvider === "smtp") {
+    return Boolean(
       ENV.smtpHost &&
-      isValidSmtpPort(ENV.smtpPort) &&
-      ENV.smtpUser &&
-      ENV.smtpPass &&
-      ENV.smtpFromEmail
-  );
+        isValidSmtpPort(ENV.smtpPort) &&
+        ENV.smtpUser &&
+        ENV.smtpPass &&
+        ENV.emailFrom
+    );
+  }
+
+  if (emailProvider === "tencent_ses_api") {
+    return Boolean(
+      ENV.tencentSesSecretId &&
+        ENV.tencentSesSecretKey &&
+        ENV.tencentSesRegion &&
+        ENV.emailFrom &&
+        (ENV.tencentSesAllowSimpleContent ||
+          ENV.tencentSesVerificationOtpTemplateId)
+    );
+  }
+
+  return false;
 }
 
 function escapeHtml(value: string) {
@@ -165,30 +219,38 @@ function toWebHeaders(headers: IncomingHttpHeaders): Headers {
   return result;
 }
 
-async function sendMagicLinkEmail(email: string, url: string) {
-  const safeUrl = escapeHtml(url);
-  const appName = "AI Tutor";
-  const loginText = `Sign in to ${appName}`;
+async function sendVerificationOtpEmail(
+  email: string,
+  otp: string,
+  type: VerificationOtpType
+) {
+  if (type !== "email-verification") {
+    throw new Error(`Unsupported OTP email type: ${type}`);
+  }
+
+  const subject = VERIFICATION_OTP_LOGIN_TEXT;
+  const text = `${VERIFICATION_OTP_LOGIN_TEXT}：${otp}。验证码 ${VERIFICATION_OTP_EXPIRES_IN_MINUTES} 分钟内有效。`;
 
   await sendEmail({
     to: email,
-    subject: loginText,
-    text: `Use this link to sign in to ${appName}: ${url}`,
+    subject,
+    text,
+    templateAlias: "verification_otp",
+    templateData: {
+      appName: APP_NAME,
+      loginText: VERIFICATION_OTP_LOGIN_TEXT,
+      otp,
+      expiresInMinutes: VERIFICATION_OTP_EXPIRES_IN_MINUTES,
+    },
     html: `
       <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#111827;">
-        <h1 style="font-size:24px;margin:0 0 16px;">${loginText}</h1>
+        <h1 style="font-size:24px;margin:0 0 16px;">${subject}</h1>
         <p style="font-size:15px;line-height:1.6;margin:0 0 16px;">
-          Click the button below to sign in. This link expires in 10 minutes.
+          验证码是 <strong>${escapeHtml(otp)}</strong>。
         </p>
-        <p style="margin:24px 0;">
-          <a href="${safeUrl}" style="display:inline-block;padding:12px 18px;background:#111827;color:#ffffff;text-decoration:none;border-radius:10px;">
-            Sign in
-          </a>
+        <p style="font-size:15px;line-height:1.6;margin:0;">
+          验证码 ${VERIFICATION_OTP_EXPIRES_IN_MINUTES} 分钟内有效。
         </p>
-        <p style="font-size:13px;line-height:1.6;color:#6b7280;margin:0;">
-          If the button does not work, copy and paste this URL into your browser:
-        </p>
-        <p style="font-size:13px;line-height:1.6;word-break:break-all;color:#2563eb;">${safeUrl}</p>
       </div>
     `,
   });
@@ -228,13 +290,13 @@ function normalizeSessionPayload(payload: any): AuthSessionResult | null {
 
 export function registerAuthRoutes(app: Express) {
   app.use("/api/auth", (req, res, next) => {
-    if (!shouldRateLimitMagicLinkRequest(req)) {
+    if (!shouldRateLimitAuthRequest(req)) {
       next();
       return;
     }
 
     const ip = req.ip || req.socket.remoteAddress || "unknown";
-    const ipHit = magicLinkIpLimiter.consume(ip);
+    const ipHit = authIpLimiter.consume(ip);
 
     if (!ipHit.allowed) {
       res.status(429).json({
@@ -243,16 +305,18 @@ export function registerAuthRoutes(app: Express) {
       return;
     }
 
-    const email =
+    const identity =
       typeof req.body?.email === "string"
         ? req.body.email.trim().toLowerCase()
-        : "";
+        : typeof req.body?.username === "string"
+          ? req.body.username.trim().toLowerCase()
+          : "";
 
-    if (email) {
-      const emailHit = magicLinkEmailLimiter.consume(email);
-      if (!emailHit.allowed) {
+    if (identity) {
+      const identityHit = authIdentityLimiter.consume(identity);
+      if (!identityHit.allowed) {
         res.status(429).json({
-          error: "Too many login emails sent. Please try again later.",
+          error: "Too many auth requests. Please try again later.",
         });
         return;
       }
@@ -265,7 +329,7 @@ export function registerAuthRoutes(app: Express) {
     if (!isAuthConfigured()) {
       res.status(503).json({
         error:
-          "Authentication is not configured. Set DATABASE_URL, BETTER_AUTH_SECRET, SMTP_HOST, SMTP_USER, SMTP_PASS, and SMTP_FROM_EMAIL.",
+          "Authentication is temporarily disabled. Configure EMAIL_PROVIDER and the matching email provider settings to enable sign-in.",
       });
       return;
     }
@@ -308,6 +372,6 @@ export async function signOutCurrentSession(req: Request): Promise<void> {
 }
 
 export function resetAuthRateLimitersForTest() {
-  magicLinkIpLimiter.reset();
-  magicLinkEmailLimiter.reset();
+  authIpLimiter.reset();
+  authIdentityLimiter.reset();
 }

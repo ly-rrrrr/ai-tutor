@@ -18,7 +18,7 @@ export const users = mysqlTable("users", {
   authUserId: varchar("authUserId", { length: 255 }).notNull().unique(),
   name: text("name"),
   email: varchar("email", { length: 320 }),
-  loginMethod: varchar("loginMethod", { length: 64 }).default("magic_link"),
+  loginMethod: varchar("loginMethod", { length: 64 }).default("password"),
   role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
   /** CEFR level: A1, A2, B1, B2, C1, C2 */
   level: varchar("level", { length: 4 }).default("A2"),
@@ -42,10 +42,13 @@ export const authUsers = mysqlTable("auth_users", {
   email: varchar("email", { length: 320 }).notNull(),
   emailVerified: int("emailVerified").default(0).notNull(),
   image: text("image"),
+  username: varchar("username", { length: 255 }),
+  displayUsername: varchar("displayUsername", { length: 255 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 }, table => ({
   emailUnique: uniqueIndex("auth_users_email_unique").on(table.email),
+  usernameUnique: uniqueIndex("auth_users_username_unique").on(table.username),
 }));
 
 export const authSessions = mysqlTable("auth_sessions", {

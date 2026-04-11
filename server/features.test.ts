@@ -1,6 +1,13 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { appRouter, resetTrialRateLimitersForTest } from "./routers";
+import { createContext } from "./_core/context";
 import type { TrpcContext } from "./_core/context";
+
+const {
+  getCurrentAuthSessionMock,
+} = vi.hoisted(() => ({
+  getCurrentAuthSessionMock: vi.fn(),
+}));
 
 // Mock the LLM module
 vi.mock("./_core/llm", () => ({
@@ -39,6 +46,10 @@ vi.mock("./_core/voiceTranscription", () => ({
 vi.mock("./_core/email", () => ({
   sendEmail: vi.fn().mockResolvedValue(undefined),
   assertEmailConfigured: vi.fn(),
+}));
+
+vi.mock("./_core/auth", () => ({
+  getCurrentAuthSession: getCurrentAuthSessionMock,
 }));
 
 // Mock the storage module
@@ -196,7 +207,7 @@ function createAuthContext(): TrpcContext {
     authUserId: "test-user-001",
     email: "test@example.com",
     name: "Test Learner",
-    loginMethod: "magic_link",
+    loginMethod: "password",
     role: "user",
     level: "A2",
     totalPracticeSeconds: 0,
@@ -228,9 +239,45 @@ function createPublicContext(): TrpcContext {
   };
 }
 
+function createRequestResponse(): { req: TrpcContext["req"]; res: TrpcContext["res"] } {
+  return {
+    req: { protocol: "https", headers: {} } as TrpcContext["req"],
+    res: {
+      clearCookie: vi.fn(),
+    } as unknown as TrpcContext["res"],
+  };
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   resetTrialRateLimitersForTest();
+});
+
+describe("authenticated context sync", () => {
+  it("syncs authenticated sessions with password loginMethod", async () => {
+    getCurrentAuthSessionMock.mockResolvedValueOnce({
+      session: { id: "session-123" },
+      user: {
+        id: "auth-user-123",
+        email: "learner@example.com",
+        name: "Learner",
+      },
+    });
+
+    const { req, res } = createRequestResponse();
+    const db = await import("./db");
+
+    await createContext({ req, res });
+
+    expect(db.upsertUser).toHaveBeenCalledWith(
+      expect.objectContaining({
+        authUserId: "auth-user-123",
+        email: "learner@example.com",
+        name: "Learner",
+        loginMethod: "password",
+      })
+    );
+  });
 });
 
 describe("Scenario Routes", () => {
@@ -617,5 +664,26 @@ describe("Auth Routes", () => {
     expect(result).toBeDefined();
     expect(result?.name).toBe("Test Learner");
     expect(result?.email).toBe("test@example.com");
+  });
+
+  it("auth.config exposes guest access and the turnstile site key", async () => {
+    vi.stubEnv("GUEST_ACCESS_ENABLED", "true");
+    vi.stubEnv("CLOUDFLARE_TURNSTILE_SITE_KEY", "turnstile-site-key");
+    vi.resetModules();
+
+    try {
+      const { appRouter } = await import("./routers");
+      const ctx = createPublicContext();
+      const caller = appRouter.createCaller(ctx);
+      const result = await caller.auth.config();
+
+      expect(result).toEqual({
+        guestAccessEnabled: true,
+        turnstileSiteKey: "turnstile-site-key",
+      });
+    } finally {
+      vi.unstubAllEnvs();
+      vi.resetModules();
+    }
   });
 });

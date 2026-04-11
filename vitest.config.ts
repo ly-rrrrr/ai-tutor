@@ -22,5 +22,12 @@ export default defineConfig({
       "client/src/**/*.spec.ts",
       "client/src/**/*.spec.tsx",
     ],
+    setupFiles: ["./client/src/test/setup.ts"],
+    environmentMatchGlobs: [
+      ["client/src/**/*.test.ts", "jsdom"],
+      ["client/src/**/*.test.tsx", "jsdom"],
+      ["client/src/**/*.spec.ts", "jsdom"],
+      ["client/src/**/*.spec.tsx", "jsdom"],
+    ],
   },
 });
