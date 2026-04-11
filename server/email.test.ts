@@ -123,13 +123,13 @@ describe("email", () => {
 
     await sendEmail({
       to: "learner@example.com",
-      subject: "Sign in to AI Tutor",
-      text: "Your verification code is 123456",
-      html: "<p>Your verification code is 123456</p>",
+      subject: "AI Tutor 邮箱验证码",
+      text: "AI Tutor 邮箱验证码：123456。验证码 10 分钟内有效。",
+      html: "<p>AI Tutor 邮箱验证码：123456。验证码 10 分钟内有效。</p>",
       templateAlias: "verification_otp",
       templateData: {
         appName: "AI Tutor",
-        loginText: "Verify your email to continue",
+        loginText: "AI Tutor 邮箱验证码",
         otp: "123456",
         expiresInMinutes: 10,
       },
@@ -149,14 +149,14 @@ describe("email", () => {
     expect(payload).toMatchObject({
       FromEmailAddress: "AI Tutor <noreply@example.com>",
       Destination: ["learner@example.com"],
-      Subject: "Sign in to AI Tutor",
+      Subject: "AI Tutor 邮箱验证码",
       Template: {
         TemplateID: 1001,
       },
     });
     expect(JSON.parse(payload.Template.TemplateData)).toMatchObject({
       appName: "AI Tutor",
-      loginText: "Verify your email to continue",
+      loginText: "AI Tutor 邮箱验证码",
       otp: "123456",
       expiresInMinutes: 10,
     });

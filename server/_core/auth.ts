@@ -34,7 +34,7 @@ type VerificationOtpType =
   | "change-email";
 
 const APP_NAME = "AI Tutor";
-const VERIFICATION_OTP_LOGIN_TEXT = "Verify your email to continue";
+const VERIFICATION_OTP_LOGIN_TEXT = "AI Tutor 邮箱验证码";
 const VERIFICATION_OTP_EXPIRES_IN_MINUTES = 10;
 const AUTH_RATE_LIMIT_PATHS = new Set([
   "/sign-up/email",
@@ -46,6 +46,7 @@ const AUTH_RATE_LIMIT_PATHS = new Set([
   "/email-otp/check-verification-otp",
   "/email-otp/verify-email",
 ]);
+const CAPTCHA_AUTH_PATHS = new Set(["/sign-up/email"]);
 
 function createAuthInstance() {
   return betterAuth({
@@ -110,7 +111,7 @@ function createAuthInstance() {
       captcha({
         provider: "cloudflare-turnstile",
         secretKey: ENV.turnstileSecretKey,
-        endpoints: Array.from(AUTH_RATE_LIMIT_PATHS),
+        endpoints: Array.from(CAPTCHA_AUTH_PATHS),
       }),
     ],
   });
@@ -228,7 +229,7 @@ async function sendVerificationOtpEmail(
   }
 
   const subject = VERIFICATION_OTP_LOGIN_TEXT;
-  const text = `Your verification code is ${otp}. It expires in ${VERIFICATION_OTP_EXPIRES_IN_MINUTES} minutes.`;
+  const text = `${VERIFICATION_OTP_LOGIN_TEXT}：${otp}。验证码 ${VERIFICATION_OTP_EXPIRES_IN_MINUTES} 分钟内有效。`;
 
   await sendEmail({
     to: email,
@@ -245,10 +246,10 @@ async function sendVerificationOtpEmail(
       <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#111827;">
         <h1 style="font-size:24px;margin:0 0 16px;">${subject}</h1>
         <p style="font-size:15px;line-height:1.6;margin:0 0 16px;">
-          Your verification code is <strong>${escapeHtml(otp)}</strong>.
+          验证码是 <strong>${escapeHtml(otp)}</strong>。
         </p>
         <p style="font-size:15px;line-height:1.6;margin:0;">
-          It expires in ${VERIFICATION_OTP_EXPIRES_IN_MINUTES} minutes.
+          验证码 ${VERIFICATION_OTP_EXPIRES_IN_MINUTES} 分钟内有效。
         </p>
       </div>
     `,
