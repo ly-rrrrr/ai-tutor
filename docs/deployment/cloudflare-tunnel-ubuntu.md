@@ -87,17 +87,48 @@ CADDY_DATA_DIR=/home/yea/data/ai-tutor/caddy/data
 CADDY_CONFIG_DIR=/home/yea/data/ai-tutor/caddy/config
 CADDY_HTTP_BIND=127.0.0.1:80
 
-EMAIL_PROVIDER=disabled
+EMAIL_PROVIDER=tencent_ses_api
 GUEST_ACCESS_ENABLED=true
+
+CLOUDFLARE_TURNSTILE_SITE_KEY=Cloudflare Turnstile site key
+CLOUDFLARE_TURNSTILE_SECRET_KEY=Cloudflare Turnstile secret key
+
+TENCENT_SES_SECRET_ID=腾讯云 SecretId
+TENCENT_SES_SECRET_KEY=腾讯云 SecretKey
+TENCENT_SES_REGION=ap-guangzhou
+TENCENT_SES_ALLOW_SIMPLE_CONTENT=false
+TENCENT_SES_VERIFICATION_OTP_TEMPLATE_ID=腾讯云验证码模板 ID
+TENCENT_SES_ADMIN_NOTIFICATION_TEMPLATE_ID=腾讯云管理员通知模板 ID
 
 CLOUDFLARE_TUNNEL_TOKEN=把 Cloudflare Tunnel 页面复制出来的 token 填到这里
 ```
 
 说明：
 
-- `EMAIL_PROVIDER=disabled` 允许站点先上线，登录邮件后续再恢复
+- `EMAIL_PROVIDER=tencent_ses_api` 使用腾讯云 SES API 发送邮箱验证码，不依赖 SMTP
 - `GUEST_ACCESS_ENABLED=true` 时，每个浏览器会自动获得一个独立 guest 身份，可以继续使用会话、语音、历史和看板等核心功能
 - `CADDY_HTTP_BIND=127.0.0.1:80` 只把本机 HTTP 入口绑到回环地址，避免再依赖公网入站
+
+## Tencent SES template requirements
+
+Create a verification OTP template with these variables only:
+
+- `appName`
+- `loginText`
+- `otp`
+- `expiresInMinutes`
+
+Do not use dynamic verification links in the Tencent template.
+
+## Cloudflare Turnstile
+
+Set:
+
+- `CLOUDFLARE_TURNSTILE_SITE_KEY`
+- `CLOUDFLARE_TURNSTILE_SECRET_KEY`
+
+The site key is exposed to the SPA through `auth.config`.
+The secret key is consumed only by the Better Auth captcha plugin on `/api/auth/sign-up/email`.
 
 ## 首次启动
 
@@ -125,7 +156,12 @@ cp .env.production.example .env.production
 - `BETTER_AUTH_SECRET`
 - `AI_API_KEY`
 - `S3_*`
-- `EMAIL_PROVIDER=disabled`
+- `EMAIL_PROVIDER=tencent_ses_api`
+- `CLOUDFLARE_TURNSTILE_SITE_KEY`
+- `CLOUDFLARE_TURNSTILE_SECRET_KEY`
+- `TENCENT_SES_SECRET_ID`
+- `TENCENT_SES_SECRET_KEY`
+- `TENCENT_SES_VERIFICATION_OTP_TEMPLATE_ID`
 - `GUEST_ACCESS_ENABLED=true`
 - `CLOUDFLARE_TUNNEL_TOKEN`
 
@@ -226,3 +262,16 @@ GUEST_ACCESS_ENABLED=true
 - guest 用户默认是普通用户，不具备 admin 权限
 - 点击退出会清空当前 guest cookie；下次访问会分配一个新的 guest 身份
 - 这是临时过渡方案，邮件登录恢复后建议关闭
+
+如果 `.env.production` 中是：
+
+```env
+EMAIL_PROVIDER=tencent_ses_api
+```
+
+但注册后收不到验证码，优先检查：
+
+- `TENCENT_SES_VERIFICATION_OTP_TEMPLATE_ID` 是否是已审核通过的验证码模板
+- 模板变量是否只包含 `appName`、`loginText`、`otp`、`expiresInMinutes`
+- `CLOUDFLARE_TURNSTILE_SITE_KEY` 和 `CLOUDFLARE_TURNSTILE_SECRET_KEY` 是否同时配置
+- 腾讯云 `TENCENT_SES_REGION` 是否与账号发信地域一致
