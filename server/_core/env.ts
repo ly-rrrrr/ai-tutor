@@ -85,14 +85,16 @@ export const ENV = {
     process.env.RESEND_FROM_EMAIL ??
     "",
   emailReplyTo: process.env.EMAIL_REPLY_TO ?? "",
+  turnstileSiteKey: process.env.CLOUDFLARE_TURNSTILE_SITE_KEY ?? "",
+  turnstileSecretKey: process.env.CLOUDFLARE_TURNSTILE_SECRET_KEY ?? "",
   tencentSesSecretId: process.env.TENCENT_SES_SECRET_ID ?? "",
   tencentSesSecretKey: process.env.TENCENT_SES_SECRET_KEY ?? "",
   tencentSesRegion: process.env.TENCENT_SES_REGION ?? "",
   tencentSesAllowSimpleContent: parseBooleanEnv(
     process.env.TENCENT_SES_ALLOW_SIMPLE_CONTENT
   ),
-  tencentSesMagicLinkTemplateId: parseOptionalPositiveInteger(
-    process.env.TENCENT_SES_MAGIC_LINK_TEMPLATE_ID
+  tencentSesVerificationOtpTemplateId: parseOptionalPositiveInteger(
+    process.env.TENCENT_SES_VERIFICATION_OTP_TEMPLATE_ID
   ),
   tencentSesAdminNotificationTemplateId: parseOptionalPositiveInteger(
     process.env.TENCENT_SES_ADMIN_NOTIFICATION_TEMPLATE_ID

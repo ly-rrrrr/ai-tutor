@@ -29,9 +29,11 @@ beforeEach(() => {
     TENCENT_SES_REGION: "ap-guangzhou",
     TENCENT_SES_SECRET_ID: "secret-id",
     TENCENT_SES_SECRET_KEY: "secret-key",
-    TENCENT_SES_MAGIC_LINK_TEMPLATE_ID: "1001",
+    TENCENT_SES_VERIFICATION_OTP_TEMPLATE_ID: "1001",
     TENCENT_SES_ADMIN_NOTIFICATION_TEMPLATE_ID: "1002",
   };
+  delete process.env.TENCENT_SES_MAGIC_LINK_TEMPLATE_ID;
+  delete process.env.TENCENT_SES_ALLOW_SIMPLE_CONTENT;
 });
 
 afterEach(() => {
@@ -104,7 +106,7 @@ describe("email", () => {
     ).rejects.toThrow("Email delivery is disabled");
   });
 
-  it("sends email through Tencent SES API with a template by default", async () => {
+  it("sends verification otp email through Tencent SES API with the otp template contract", async () => {
     process.env.EMAIL_PROVIDER = "tencent_ses_api";
     fetchMock.mockResolvedValue({
       ok: true,
@@ -122,12 +124,14 @@ describe("email", () => {
     await sendEmail({
       to: "learner@example.com",
       subject: "Sign in to AI Tutor",
-      text: "Your magic link",
-      html: "<p>Your magic link</p>",
-      templateAlias: "magic_link",
+      text: "Your verification code is 123456",
+      html: "<p>Your verification code is 123456</p>",
+      templateAlias: "verification_otp",
       templateData: {
         appName: "AI Tutor",
-        url: "https://app.example.com/login",
+        loginText: "Verify your email to continue",
+        otp: "123456",
+        expiresInMinutes: 10,
       },
     });
 
@@ -152,25 +156,28 @@ describe("email", () => {
     });
     expect(JSON.parse(payload.Template.TemplateData)).toMatchObject({
       appName: "AI Tutor",
-      url: "https://app.example.com/login",
+      loginText: "Verify your email to continue",
+      otp: "123456",
+      expiresInMinutes: 10,
     });
+    expect(JSON.parse(payload.Template.TemplateData)).not.toHaveProperty("url");
   });
 
-  it("requires a Tencent SES template ID when simple content mode is disabled", async () => {
+  it("requires a Tencent SES verification OTP template ID when simple content mode is disabled", async () => {
     process.env.EMAIL_PROVIDER = "tencent_ses_api";
-    delete process.env.TENCENT_SES_MAGIC_LINK_TEMPLATE_ID;
+    delete process.env.TENCENT_SES_VERIFICATION_OTP_TEMPLATE_ID;
 
     const { assertEmailConfigured } = await import("./_core/email");
 
     expect(() => assertEmailConfigured()).toThrow(
-      "TENCENT_SES_MAGIC_LINK_TEMPLATE_ID is not configured"
+      "TENCENT_SES_VERIFICATION_OTP_TEMPLATE_ID is not configured"
     );
   });
 
   it("allows Tencent SES simple content mode without a template ID", async () => {
     process.env.EMAIL_PROVIDER = "tencent_ses_api";
     process.env.TENCENT_SES_ALLOW_SIMPLE_CONTENT = "true";
-    delete process.env.TENCENT_SES_MAGIC_LINK_TEMPLATE_ID;
+    delete process.env.TENCENT_SES_VERIFICATION_OTP_TEMPLATE_ID;
 
     const { assertEmailConfigured } = await import("./_core/email");
 

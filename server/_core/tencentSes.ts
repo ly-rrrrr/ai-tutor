@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { ENV } from "./env";
 
-export type EmailTemplateAlias = "magic_link" | "admin_notification";
+export type EmailTemplateAlias = "verification_otp" | "admin_notification";
 
 type TemplateValue = string | number | boolean | null | undefined;
 
@@ -31,7 +31,7 @@ function hmacSha256(key: string | Buffer, value: string): Buffer {
 
 function normalizeTemplateData(
   data: Record<string, TemplateValue> | undefined
-): Record<string, string> {
+): Record<string, string | number | boolean | null> {
   if (!data) {
     return {};
   }
@@ -39,7 +39,7 @@ function normalizeTemplateData(
   return Object.fromEntries(
     Object.entries(data)
       .filter(([, value]) => value !== undefined)
-      .map(([key, value]) => [key, value == null ? "" : String(value)])
+      .map(([key, value]) => [key, value == null ? null : value])
   );
 }
 
@@ -49,8 +49,8 @@ function getTemplateId(alias: EmailTemplateAlias | undefined): number | null {
   }
 
   switch (alias) {
-    case "magic_link":
-      return ENV.tencentSesMagicLinkTemplateId;
+    case "verification_otp":
+      return ENV.tencentSesVerificationOtpTemplateId;
     case "admin_notification":
       return ENV.tencentSesAdminNotificationTemplateId;
     default:

@@ -59,10 +59,10 @@ function assertTencentSesConfigured(): void {
 
   if (
     !ENV.tencentSesAllowSimpleContent &&
-    !ENV.tencentSesMagicLinkTemplateId
+    !ENV.tencentSesVerificationOtpTemplateId
   ) {
     throw new Error(
-      "TENCENT_SES_MAGIC_LINK_TEMPLATE_ID is not configured and simple content mode is disabled"
+      "TENCENT_SES_VERIFICATION_OTP_TEMPLATE_ID is not configured and simple content mode is disabled"
     );
   }
 }

@@ -22,6 +22,10 @@ function getEmailProvider() {
   return ENV.emailProvider.trim().toLowerCase();
 }
 
+function isAuthEnabled() {
+  return getEmailProvider() !== "disabled";
+}
+
 export function assertProductionConfig() {
   if (!ENV.isProduction) {
     return;
@@ -43,6 +47,16 @@ export function assertProductionConfig() {
 
   if (!ENV.aiApiKey) {
     missing.push("AI_API_KEY");
+  }
+
+  if (isAuthEnabled()) {
+    if (!ENV.turnstileSiteKey) {
+      missing.push("CLOUDFLARE_TURNSTILE_SITE_KEY");
+    }
+
+    if (!ENV.turnstileSecretKey) {
+      missing.push("CLOUDFLARE_TURNSTILE_SECRET_KEY");
+    }
   }
 
   if (hasProviderNeutralStorageEnv()) {
@@ -134,9 +148,9 @@ export function assertProductionConfig() {
 
       if (
         !ENV.tencentSesAllowSimpleContent &&
-        !ENV.tencentSesMagicLinkTemplateId
+        !ENV.tencentSesVerificationOtpTemplateId
       ) {
-        missing.push("TENCENT_SES_MAGIC_LINK_TEMPLATE_ID");
+        missing.push("TENCENT_SES_VERIFICATION_OTP_TEMPLATE_ID");
       }
       break;
     default:
