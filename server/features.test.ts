@@ -665,4 +665,20 @@ describe("Auth Routes", () => {
     expect(result?.name).toBe("Test Learner");
     expect(result?.email).toBe("test@example.com");
   });
+
+  it("auth.config exposes guest access and the turnstile site key", async () => {
+    vi.stubEnv("GUEST_ACCESS_ENABLED", "true");
+    vi.stubEnv("CLOUDFLARE_TURNSTILE_SITE_KEY", "turnstile-site-key");
+    vi.resetModules();
+
+    const { appRouter } = await import("./routers");
+    const ctx = createPublicContext();
+    const caller = appRouter.createCaller(ctx);
+    const result = await caller.auth.config();
+
+    expect(result).toEqual({
+      guestAccessEnabled: true,
+      turnstileSiteKey: "turnstile-site-key",
+    });
+  });
 });

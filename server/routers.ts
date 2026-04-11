@@ -3,6 +3,7 @@ import { clearGuestCookie, getSessionCookieOptions } from "./_core/cookies";
 import { signOutCurrentSession } from "./_core/auth";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
+import { ENV } from "./_core/env";
 import { invokeLLM } from "./_core/llm";
 import { transcribeAudio } from "./_core/voiceTranscription";
 import { textToSpeech } from "./_core/tts";
@@ -138,6 +139,10 @@ export const appRouter = router({
   system: systemRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
+    config: publicProcedure.query(() => ({
+      guestAccessEnabled: ENV.guestAccessEnabled,
+      turnstileSiteKey: ENV.turnstileSiteKey || null,
+    })),
     logout: publicProcedure.mutation(async ({ ctx }) => {
       await signOutCurrentSession(ctx.req);
       const cookieOptions = getSessionCookieOptions(ctx.req);
