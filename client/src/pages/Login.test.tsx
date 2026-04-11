@@ -9,6 +9,10 @@ const mockToast = vi.hoisted(() => ({
   error: vi.fn(),
   success: vi.fn(),
 }));
+const mockAuthConfigData = vi.hoisted(() => ({
+  guestAccessEnabled: true as boolean,
+  turnstileSiteKey: null as string | null,
+}));
 const mockAuthClient = vi.hoisted(() => ({
   signIn: {
     username: vi.fn(),
@@ -38,7 +42,7 @@ vi.mock("@/lib/trpc", () => ({
   trpc: {
     auth: {
       config: {
-        useQuery: () => ({ data: { guestAccessEnabled: true } }),
+        useQuery: () => ({ data: mockAuthConfigData }),
       },
     },
   },
@@ -56,6 +60,8 @@ describe("Login", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     setLocation.mockReset();
+    mockAuthConfigData.guestAccessEnabled = true;
+    mockAuthConfigData.turnstileSiteKey = null;
   });
 
   afterEach(() => {
@@ -184,5 +190,39 @@ describe("Login", () => {
         .getAllByRole("button", { name: /游客进入/i })
         .filter(button => button.getAttribute("type") === "button")[0]
     ).toBeDefined();
+  });
+
+  it("clears the captcha token when leaving the register tab", async () => {
+    const user = userEvent.setup();
+    mockAuthConfigData.turnstileSiteKey = "turnstile-site-key";
+    const turnstileRender = vi.fn();
+    let renderCount = 0;
+    (window.turnstile?.render as ReturnType<typeof vi.fn>).mockImplementation(
+      (_element, options) => {
+        turnstileRender();
+        renderCount += 1;
+        if (renderCount === 1) {
+          options.callback("turnstile-token");
+        }
+        return "widget-id";
+      }
+    );
+
+    render(<Login />);
+
+    await user.click(screen.getByRole("tab", { name: /注册/i }));
+    await user.type(screen.getByLabelText(/用户名/i), "learner_01");
+    await user.type(screen.getByLabelText(/邮箱/i), "learner@example.com");
+    await user.type(screen.getByLabelText(/^密码$/i), "password-123");
+    await user.type(screen.getByLabelText(/再次输入密码/i), "password-123");
+    await user.click(screen.getByRole("tab", { name: /登录/i }));
+    await user.click(screen.getByRole("tab", { name: /注册/i }));
+
+    mockAuthClient.signUp.email.mockResolvedValueOnce({ error: null } as never);
+    await user.click(getSubmitButton(/^创建账号$/i));
+
+    expect(turnstileRender).toHaveBeenCalled();
+    expect(mockAuthClient.signUp.email).not.toHaveBeenCalled();
+    expect(mockToast.error).toHaveBeenCalledWith("请先完成人机验证。");
   });
 });

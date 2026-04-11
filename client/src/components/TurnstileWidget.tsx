@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import React, { useEffect, useRef } from "react";
 
 type TurnstileWidgetProps = {
   siteKey: string;
@@ -67,6 +67,8 @@ export function TurnstileWidget({ siteKey, onTokenChange }: TurnstileWidgetProps
 
     return () => {
       script.removeEventListener("load", renderWidget);
+
+      onTokenChange(null);
 
       if (widgetIdRef.current && window.turnstile) {
         window.turnstile.remove(widgetIdRef.current);

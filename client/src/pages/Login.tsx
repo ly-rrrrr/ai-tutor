@@ -72,6 +72,12 @@ export default function Login() {
     }
   }, [isAuthenticated, loading, setLocation]);
 
+  useEffect(() => {
+    if (mode !== "register") {
+      setCaptchaToken(null);
+    }
+  }, [mode]);
+
   const handleLoginSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
