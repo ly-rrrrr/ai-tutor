@@ -671,14 +671,19 @@ describe("Auth Routes", () => {
     vi.stubEnv("CLOUDFLARE_TURNSTILE_SITE_KEY", "turnstile-site-key");
     vi.resetModules();
 
-    const { appRouter } = await import("./routers");
-    const ctx = createPublicContext();
-    const caller = appRouter.createCaller(ctx);
-    const result = await caller.auth.config();
+    try {
+      const { appRouter } = await import("./routers");
+      const ctx = createPublicContext();
+      const caller = appRouter.createCaller(ctx);
+      const result = await caller.auth.config();
 
-    expect(result).toEqual({
-      guestAccessEnabled: true,
-      turnstileSiteKey: "turnstile-site-key",
-    });
+      expect(result).toEqual({
+        guestAccessEnabled: true,
+        turnstileSiteKey: "turnstile-site-key",
+      });
+    } finally {
+      vi.unstubAllEnvs();
+      vi.resetModules();
+    }
   });
 });

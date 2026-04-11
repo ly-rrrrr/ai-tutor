@@ -54,11 +54,15 @@ if (typeof globalThis !== "undefined" && !globalThis.ResizeObserver) {
   globalThis.ResizeObserver = MockResizeObserver as unknown as typeof ResizeObserver;
 }
 
-if (typeof window !== "undefined" && !window.scrollTo) {
+if (typeof window !== "undefined") {
   window.scrollTo = vi.fn();
 }
 
-if (typeof HTMLElement !== "undefined" && !HTMLElement.prototype.scrollIntoView) {
+if (typeof HTMLElement !== "undefined") {
+  HTMLElement.prototype.scrollTo = vi.fn();
+}
+
+if (typeof HTMLElement !== "undefined") {
   HTMLElement.prototype.scrollIntoView = vi.fn();
 }
 
