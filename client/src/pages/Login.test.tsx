@@ -3,9 +3,25 @@ import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import Login from "./Login";
-import { authClient } from "@/lib/auth-client";
 
 const setLocation = vi.fn();
+const mockToast = vi.hoisted(() => ({
+  error: vi.fn(),
+  success: vi.fn(),
+}));
+const mockAuthClient = vi.hoisted(() => ({
+  signIn: {
+    username: vi.fn(),
+    email: vi.fn(),
+  },
+  signUp: {
+    email: vi.fn(),
+  },
+  emailOtp: {
+    verifyEmail: vi.fn(),
+    sendVerificationOtp: vi.fn(),
+  },
+}));
 
 vi.mock("@/_core/hooks/useAuth", () => ({
   useAuth: () => ({
@@ -15,19 +31,7 @@ vi.mock("@/_core/hooks/useAuth", () => ({
 }));
 
 vi.mock("@/lib/auth-client", () => ({
-  authClient: {
-    signIn: {
-      username: vi.fn(),
-      email: vi.fn(),
-    },
-    signUp: {
-      email: vi.fn(),
-    },
-    emailOtp: {
-      verifyEmail: vi.fn(),
-      sendVerificationOtp: vi.fn(),
-    },
-  },
+  authClient: mockAuthClient,
 }));
 
 vi.mock("@/lib/trpc", () => ({
@@ -40,11 +44,13 @@ vi.mock("@/lib/trpc", () => ({
   },
 }));
 
+vi.mock("sonner", () => ({
+  toast: mockToast,
+}));
+
 vi.mock("wouter", () => ({
   useLocation: () => ["/login", setLocation] as const,
 }));
-
-const mockedAuthClient = vi.mocked(authClient);
 
 describe("Login", () => {
   beforeEach(() => {
@@ -73,7 +79,7 @@ describe("Login", () => {
     await user.type(screen.getByLabelText(/^密码$/i), "correct horse battery staple");
     await user.click(getSubmitButton(/^登录$/i));
 
-    expect(authClient.signIn.username).toHaveBeenCalledWith(
+    expect(mockAuthClient.signIn.username).toHaveBeenCalledWith(
       expect.objectContaining({
         username: "learner_01",
         password: "correct horse battery staple",
@@ -89,7 +95,7 @@ describe("Login", () => {
     await user.type(screen.getByLabelText(/^密码$/i), "correct horse battery staple");
     await user.click(getSubmitButton(/^登录$/i));
 
-    expect(authClient.signIn.email).toHaveBeenCalledWith(
+    expect(mockAuthClient.signIn.email).toHaveBeenCalledWith(
       expect.objectContaining({
         email: "learner@example.com",
         password: "correct horse battery staple",
@@ -113,7 +119,7 @@ describe("Login", () => {
 
   it("moves to the verify-email step after successful registration", async () => {
     const user = userEvent.setup();
-    mockedAuthClient.signUp.email.mockResolvedValueOnce({ error: null } as never);
+    mockAuthClient.signUp.email.mockResolvedValueOnce({ error: null } as never);
 
     render(<Login />);
 
@@ -129,7 +135,7 @@ describe("Login", () => {
 
   it("resends the verification code from the verify-email step", async () => {
     const user = userEvent.setup();
-    mockedAuthClient.signUp.email.mockResolvedValueOnce({ error: null } as never);
+    mockAuthClient.signUp.email.mockResolvedValueOnce({ error: null } as never);
 
     render(<Login />);
 
@@ -141,10 +147,29 @@ describe("Login", () => {
     await user.click(getSubmitButton(/^创建账号$/i));
     await user.click(screen.getByRole("button", { name: /重新发送验证码/i }));
 
-    expect(mockedAuthClient.emailOtp.sendVerificationOtp).toHaveBeenCalledWith({
+    expect(mockAuthClient.emailOtp.sendVerificationOtp).toHaveBeenCalledWith({
       email: "learner@example.com",
       type: "email-verification",
     });
+  });
+
+  it("does not enter verify mode for username login when email is not verified", async () => {
+    const user = userEvent.setup();
+    mockAuthClient.signIn.username.mockRejectedValueOnce({
+      code: "EMAIL_NOT_VERIFIED",
+      message: "email not verified",
+    });
+
+    render(<Login />);
+
+    await user.type(screen.getByLabelText(/用户名或邮箱/i), "learner_01");
+    await user.type(screen.getByLabelText(/^密码$/i), "correct horse battery staple");
+    await user.click(getSubmitButton(/^登录$/i));
+
+    expect(screen.queryByRole("heading", { name: /输入验证码/i })).toBeNull();
+    expect(mockToast.error).toHaveBeenCalledWith(
+      "请使用邮箱地址请求验证码，然后再用用户名登录。"
+    );
   });
 
   it("shows the guest entry action when guest access is enabled", () => {

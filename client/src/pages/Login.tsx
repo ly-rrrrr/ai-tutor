@@ -103,10 +103,15 @@ export default function Login() {
       setLocation("/app");
     } catch (error: unknown) {
       if (getErrorCode(error) === "EMAIL_NOT_VERIFIED") {
-        setPendingVerificationEmail(normalizedIdentifier);
-        setVerificationCode("");
-        setMode("verify");
-        toast.error("邮箱尚未验证，请先输入验证码。");
+        if (looksLikeEmail(normalizedIdentifier)) {
+          setPendingVerificationEmail(normalizedIdentifier);
+          setVerificationCode("");
+          setMode("verify");
+          toast.error("邮箱尚未验证，请先输入验证码。");
+          return;
+        }
+
+        toast.error("请使用邮箱地址请求验证码，然后再用用户名登录。");
         return;
       }
 
