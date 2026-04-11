@@ -111,7 +111,10 @@ export default function Login() {
           return;
         }
 
-        toast.error("请使用邮箱地址请求验证码，然后再用用户名登录。");
+        setPendingVerificationEmail("");
+        setVerificationCode("");
+        setMode("verify");
+        toast.error("请输入账号绑定的邮箱地址，然后继续验证。");
         return;
       }
 
@@ -360,8 +363,22 @@ export default function Login() {
       <div className="space-y-2">
         <h2 className="text-2xl font-semibold tracking-tight">输入验证码</h2>
         <p className="text-sm text-muted-foreground">
-          验证码已发送到 {pendingVerificationEmail || "你的邮箱"}，请输入后继续。
+          {pendingVerificationEmail
+            ? `验证码已发送到 ${pendingVerificationEmail}，请输入后继续。`
+            : "请输入账号绑定的邮箱地址，再输入验证码继续。"}
         </p>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="verification-email">邮箱地址</Label>
+        <Input
+          id="verification-email"
+          type="email"
+          autoComplete="email"
+          placeholder="learner@example.com"
+          value={pendingVerificationEmail}
+          onChange={event => setPendingVerificationEmail(event.target.value)}
+        />
       </div>
 
       <div className="space-y-2">

@@ -153,7 +153,7 @@ describe("Login", () => {
     });
   });
 
-  it("does not enter verify mode for username login when email is not verified", async () => {
+  it("lets username login enter verify mode after EMAIL_NOT_VERIFIED and uses the entered email", async () => {
     const user = userEvent.setup();
     mockAuthClient.signIn.username.mockRejectedValueOnce({
       code: "EMAIL_NOT_VERIFIED",
@@ -166,10 +166,14 @@ describe("Login", () => {
     await user.type(screen.getByLabelText(/^密码$/i), "correct horse battery staple");
     await user.click(getSubmitButton(/^登录$/i));
 
-    expect(screen.queryByRole("heading", { name: /输入验证码/i })).toBeNull();
-    expect(mockToast.error).toHaveBeenCalledWith(
-      "请使用邮箱地址请求验证码，然后再用用户名登录。"
-    );
+    expect(screen.getByRole("heading", { name: /输入验证码/i })).toBeDefined();
+    await user.type(screen.getByLabelText(/邮箱地址/i), "learner@example.com");
+    await user.click(screen.getByRole("button", { name: /重新发送验证码/i }));
+
+    expect(mockAuthClient.emailOtp.sendVerificationOtp).toHaveBeenCalledWith({
+      email: "learner@example.com",
+      type: "email-verification",
+    });
   });
 
   it("shows the guest entry action when guest access is enabled", () => {
