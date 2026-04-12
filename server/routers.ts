@@ -1,10 +1,12 @@
 import { COOKIE_NAME } from "@shared/const";
+import { createHash } from "node:crypto";
 import { clearGuestCookie, getSessionCookieOptions } from "./_core/cookies";
 import { signOutCurrentSession } from "./_core/auth";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { ENV } from "./_core/env";
 import { invokeLLM } from "./_core/llm";
+import { TtlLruCache } from "./_core/utilityCache";
 import { transcribeAudio } from "./_core/voiceTranscription";
 import { textToSpeech } from "./_core/tts";
 import { storageExists, storageGet, storagePut } from "./storage";
@@ -45,6 +47,52 @@ const ttsLimiter = createFixedWindowLimiter({
   maxHits: 40,
   windowMs: 60 * 60 * 1000,
 });
+
+type WordLookupResult = {
+  word: string;
+  phonetic: string;
+  definitions: Array<{ partOfSpeech: string; meaning: string; example: string }>;
+  synonyms: string[];
+  level: string;
+};
+
+const translationCache = new TtlLruCache<{ translation: string }>(
+  500,
+  1000 * 60 * 60 * 24
+);
+const wordLookupCache = new TtlLruCache<WordLookupResult>(
+  1000,
+  1000 * 60 * 60 * 24 * 7
+);
+
+function normalizeUtilityText(text: string) {
+  return text.trim().replace(/\s+/g, " ");
+}
+
+function hashCacheKey(parts: string[]) {
+  return createHash("sha256").update(parts.join("\0")).digest("hex");
+}
+
+function getTranslationCacheKey(text: string, targetLanguage: string) {
+  return hashCacheKey([
+    "translation:v1",
+    ENV.aiChatModel,
+    targetLanguage.trim().toLowerCase(),
+    normalizeUtilityText(text),
+  ]);
+}
+
+function normalizeLookupWord(word: string) {
+  return word.trim().toLowerCase();
+}
+
+function getWordLookupCacheKey(word: string) {
+  return hashCacheKey([
+    "word:v1",
+    ENV.aiChatModel,
+    normalizeLookupWord(word),
+  ]);
+}
 
 // Helper: strip markdown code fences that some LLM providers wrap around JSON output
 function parseJsonContent<T>(content: string): T {
@@ -483,17 +531,27 @@ If the sentence is perfect, return empty arrays and a high score. Be encouraging
       }))
       .mutation(async ({ input }) => {
         try {
+          const normalizedText = normalizeUtilityText(input.text);
+          const cacheKey = getTranslationCacheKey(normalizedText, input.targetLanguage);
+          const cached = translationCache.get(cacheKey);
+          if (cached) return cached;
+
           const result = await invokeLLM({
             messages: [
               {
                 role: "system",
                 content: `You are a professional translator. Translate the given English text to ${input.targetLanguage}. Return ONLY the translated text, no explanations, no quotes, no extra formatting.`,
               },
-              { role: "user", content: input.text },
+              { role: "user", content: normalizedText },
             ],
+            maxTokens: 256,
           });
           const translation = result.choices[0]?.message?.content as string || "";
-          return { translation: translation.trim() };
+          const payload = { translation: translation.trim() };
+          if (payload.translation) {
+            translationCache.set(cacheKey, payload);
+          }
+          return payload;
         } catch {
           throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Translation failed" });
         }
@@ -855,7 +913,11 @@ Scores should be 0-100. Be fair but encouraging. Provide suggestions in both Eng
         word: z.string().min(1).max(100),
       }))
       .query(async ({ input }) => {
-        const word = input.word.trim().toLowerCase();
+        const word = normalizeLookupWord(input.word);
+        const cacheKey = getWordLookupCacheKey(word);
+        const cached = wordLookupCache.get(cacheKey);
+        if (cached) return cached;
+
         const result = await invokeLLM({
           messages: [
             {
@@ -878,17 +940,13 @@ Include 1-3 most common definitions. Keep Chinese meanings concise (within 15 ch
             },
             { role: "user", content: word },
           ],
+          maxTokens: 512,
         });
         const content = result.choices[0]?.message?.content as string || "{}";
         try {
-          const parsed = parseJsonContent(content);
-          return parsed as {
-            word: string;
-            phonetic: string;
-            definitions: Array<{ partOfSpeech: string; meaning: string; example: string }>;
-            synonyms: string[];
-            level: string;
-          };
+          const parsed = parseJsonContent<WordLookupResult>(content);
+          wordLookupCache.set(cacheKey, parsed);
+          return parsed;
         } catch {
           return {
             word,
@@ -920,4 +978,6 @@ export function resetTrialRateLimitersForTest() {
   chatLimiter.reset();
   voiceLimiter.reset();
   ttsLimiter.reset();
+  translationCache.clear();
+  wordLookupCache.clear();
 }

@@ -4,10 +4,54 @@
  * 点击单词时调用 onWordClick(word)，其余标点/空格保持原样。
  */
 
+import React from "react";
+
 interface ClickableTextProps {
   text: string;
   onWordClick: (word: string) => void;
   className?: string;
+}
+
+const STOP_WORDS = new Set([
+  "a",
+  "an",
+  "and",
+  "are",
+  "as",
+  "at",
+  "be",
+  "but",
+  "by",
+  "for",
+  "from",
+  "he",
+  "her",
+  "his",
+  "i",
+  "in",
+  "is",
+  "it",
+  "my",
+  "of",
+  "on",
+  "or",
+  "our",
+  "she",
+  "so",
+  "that",
+  "the",
+  "their",
+  "they",
+  "this",
+  "to",
+  "we",
+  "with",
+  "you",
+  "your",
+]);
+
+function isLookupCandidate(word: string) {
+  return word.length >= 2 && !STOP_WORDS.has(word.toLowerCase());
 }
 
 // 将文本拆分为「单词」和「非单词」交替的 token 数组
@@ -48,7 +92,7 @@ export default function ClickableText({ text, onWordClick, className }: Clickabl
               e.stopPropagation();
               // 去掉末尾撇号（如 friends' → friends）
               const clean = token.value.replace(/'+$/, "");
-              if (clean.length >= 2) onWordClick(clean);
+              if (isLookupCandidate(clean)) onWordClick(clean);
             }}
             className="cursor-pointer hover:text-primary hover:underline decoration-dotted underline-offset-2 transition-colors rounded"
             title="点击查看释义"

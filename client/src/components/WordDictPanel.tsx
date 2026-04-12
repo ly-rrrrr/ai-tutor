@@ -54,7 +54,11 @@ export default function WordDictPanel({ word, onClose }: WordDictPanelProps) {
 
   const { data, isLoading } = trpc.word.lookup.useQuery(
     { word: word ?? "" },
-    { enabled: !!word, staleTime: 1000 * 60 * 10 } // 缓存10分钟，避免重复请求
+    {
+      enabled: !!word,
+      staleTime: 1000 * 60 * 60 * 24,
+      gcTime: 1000 * 60 * 60 * 24,
+    }
   );
 
   // 朗读单词

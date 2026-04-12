@@ -5,13 +5,19 @@ import type { TrpcContext } from "./_core/context";
 
 const {
   getCurrentAuthSessionMock,
+  invokeLLMMock,
 } = vi.hoisted(() => ({
   getCurrentAuthSessionMock: vi.fn(),
+  invokeLLMMock: vi.fn(),
 }));
 
 // Mock the LLM module
 vi.mock("./_core/llm", () => ({
-  invokeLLM: vi.fn().mockResolvedValue({
+  invokeLLM: invokeLLMMock,
+}));
+
+function defaultLlmResult() {
+  return {
     choices: [{
       message: {
         content: JSON.stringify({
@@ -22,8 +28,8 @@ vi.mock("./_core/llm", () => ({
         }),
       },
     }],
-  }),
-}));
+  };
+}
 
 // Mock the TTS module
 vi.mock("./_core/tts", () => ({
@@ -250,6 +256,7 @@ function createRequestResponse(): { req: TrpcContext["req"]; res: TrpcContext["r
 
 beforeEach(() => {
   vi.clearAllMocks();
+  invokeLLMMock.mockResolvedValue(defaultLlmResult());
   resetTrialRateLimitersForTest();
 });
 
@@ -468,6 +475,105 @@ describe("Chat Routes", () => {
         content: "message-over-limit",
       })
     ).rejects.toThrow("Chat rate limit exceeded");
+  });
+
+  it("chat.translate reuses cached translations for repeated text", async () => {
+    const { invokeLLM } = await import("./_core/llm");
+    vi.mocked(invokeLLM).mockResolvedValueOnce({
+      choices: [{
+        message: { content: "欢迎来到机场！" },
+      }],
+    } as never);
+
+    const ctx = createAuthContext();
+    const caller = appRouter.createCaller(ctx);
+
+    const first = await caller.chat.translate({
+      text: "Welcome to the airport!",
+      targetLanguage: "Chinese",
+    });
+    const second = await caller.chat.translate({
+      text: "  Welcome to the airport!  ",
+      targetLanguage: "Chinese",
+    });
+
+    expect(first.translation).toBe("欢迎来到机场！");
+    expect(second.translation).toBe("欢迎来到机场！");
+    expect(invokeLLM).toHaveBeenCalledTimes(1);
+  });
+
+  it("chat.translate limits LLM output for short utility calls", async () => {
+    const { invokeLLM } = await import("./_core/llm");
+    vi.mocked(invokeLLM).mockResolvedValueOnce({
+      choices: [{
+        message: { content: "欢迎。" },
+      }],
+    } as never);
+
+    const ctx = createAuthContext();
+    const caller = appRouter.createCaller(ctx);
+
+    await caller.chat.translate({
+      text: "Welcome.",
+      targetLanguage: "Chinese",
+    });
+
+    expect(invokeLLM).toHaveBeenCalledWith(expect.objectContaining({
+      maxTokens: 256,
+    }));
+  });
+});
+
+describe("Word Routes", () => {
+  const dictionaryPayload = {
+    word: "welcome",
+    phonetic: "/ˈwelkəm/",
+    definitions: [
+      {
+        partOfSpeech: "verb",
+        meaning: "欢迎",
+        example: "We welcome new students every week.",
+      },
+    ],
+    synonyms: ["greet"],
+    level: "A1",
+  };
+
+  it("word.lookup reuses cached dictionary entries for normalized words", async () => {
+    const { invokeLLM } = await import("./_core/llm");
+    vi.mocked(invokeLLM).mockResolvedValueOnce({
+      choices: [{
+        message: { content: JSON.stringify(dictionaryPayload) },
+      }],
+    } as never);
+
+    const ctx = createAuthContext();
+    const caller = appRouter.createCaller(ctx);
+
+    const first = await caller.word.lookup({ word: "Welcome" });
+    const second = await caller.word.lookup({ word: " welcome " });
+
+    expect(first).toMatchObject(dictionaryPayload);
+    expect(second).toMatchObject(dictionaryPayload);
+    expect(invokeLLM).toHaveBeenCalledTimes(1);
+  });
+
+  it("word.lookup limits LLM output for dictionary utility calls", async () => {
+    const { invokeLLM } = await import("./_core/llm");
+    vi.mocked(invokeLLM).mockResolvedValueOnce({
+      choices: [{
+        message: { content: JSON.stringify(dictionaryPayload) },
+      }],
+    } as never);
+
+    const ctx = createAuthContext();
+    const caller = appRouter.createCaller(ctx);
+
+    await caller.word.lookup({ word: "welcome" });
+
+    expect(invokeLLM).toHaveBeenCalledWith(expect.objectContaining({
+      maxTokens: 512,
+    }));
   });
 });
 
