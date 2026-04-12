@@ -544,7 +544,6 @@ If the sentence is perfect, return empty arrays and a high score. Be encouraging
               },
               { role: "user", content: normalizedText },
             ],
-            maxTokens: 256,
           });
           const translation = result.choices[0]?.message?.content as string || "";
           const payload = { translation: translation.trim() };
@@ -940,7 +939,6 @@ Include 1-3 most common definitions. Keep Chinese meanings concise (within 15 ch
             },
             { role: "user", content: word },
           ],
-          maxTokens: 512,
         });
         const content = result.choices[0]?.message?.content as string || "{}";
         try {

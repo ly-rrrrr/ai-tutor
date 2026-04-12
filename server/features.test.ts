@@ -502,7 +502,7 @@ describe("Chat Routes", () => {
     expect(invokeLLM).toHaveBeenCalledTimes(1);
   });
 
-  it("chat.translate limits LLM output for short utility calls", async () => {
+  it("chat.translate does not cap output tokens to preserve translation quality", async () => {
     const { invokeLLM } = await import("./_core/llm");
     vi.mocked(invokeLLM).mockResolvedValueOnce({
       choices: [{
@@ -518,9 +518,7 @@ describe("Chat Routes", () => {
       targetLanguage: "Chinese",
     });
 
-    expect(invokeLLM).toHaveBeenCalledWith(expect.objectContaining({
-      maxTokens: 256,
-    }));
+    expect(vi.mocked(invokeLLM).mock.calls[0]?.[0]).not.toHaveProperty("maxTokens");
   });
 });
 
@@ -558,7 +556,7 @@ describe("Word Routes", () => {
     expect(invokeLLM).toHaveBeenCalledTimes(1);
   });
 
-  it("word.lookup limits LLM output for dictionary utility calls", async () => {
+  it("word.lookup does not cap output tokens to preserve dictionary detail", async () => {
     const { invokeLLM } = await import("./_core/llm");
     vi.mocked(invokeLLM).mockResolvedValueOnce({
       choices: [{
@@ -571,9 +569,7 @@ describe("Word Routes", () => {
 
     await caller.word.lookup({ word: "welcome" });
 
-    expect(invokeLLM).toHaveBeenCalledWith(expect.objectContaining({
-      maxTokens: 512,
-    }));
+    expect(vi.mocked(invokeLLM).mock.calls[0]?.[0]).not.toHaveProperty("maxTokens");
   });
 });
 
