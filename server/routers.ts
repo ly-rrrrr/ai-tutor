@@ -721,7 +721,10 @@ Return JSON with this exact structure:
         const result = await transcribeAudio({
           audioUrl: input.audioUrl,
           language: input.language,
-          prompt: "Transcribe the English speech accurately.",
+          prompt:
+            input.language === "zh"
+              ? "Transcribe the Chinese speech accurately."
+              : "Transcribe the English speech accurately.",
         });
         if ("error" in result) {
           throw new TRPCError({

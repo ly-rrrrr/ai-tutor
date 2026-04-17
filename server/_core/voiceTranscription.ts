@@ -98,7 +98,7 @@ export async function transcribeAudio(
       }
       
       audioBuffer = Buffer.from(await response.arrayBuffer());
-      mimeType = response.headers.get('content-type') || 'audio/mpeg';
+      mimeType = normalizeMimeType(response.headers.get("content-type") || "audio/mpeg");
       
       // Check file size (25MB limit for OpenAI transcription uploads)
       const sizeMB = audioBuffer.length / (1024 * 1024);
@@ -127,6 +127,9 @@ export async function transcribeAudio(
     
     formData.append("model", ENV.aiSttModel);
     formData.append("response_format", "verbose_json");
+    if (options.language) {
+      formData.append("language", options.language);
+    }
     
     // Add prompt - use custom prompt if provided, otherwise generate based on language
     const prompt = options.prompt || (
@@ -180,8 +183,10 @@ export async function transcribeAudio(
  * Helper function to get file extension from MIME type
  */
 function getFileExtension(mimeType: string): string {
+  const normalizedMimeType = normalizeMimeType(mimeType);
   const mimeToExt: Record<string, string> = {
     'audio/webm': 'webm',
+    'video/webm': 'webm',
     'audio/mp3': 'mp3',
     'audio/mpeg': 'mp3',
     'audio/wav': 'wav',
@@ -189,9 +194,14 @@ function getFileExtension(mimeType: string): string {
     'audio/ogg': 'ogg',
     'audio/m4a': 'm4a',
     'audio/mp4': 'm4a',
+    'video/mp4': 'mp4',
   };
   
-  return mimeToExt[mimeType] || 'audio';
+  return mimeToExt[normalizedMimeType] || 'audio';
+}
+
+function normalizeMimeType(mimeType: string): string {
+  return mimeType.split(";")[0]?.trim().toLowerCase() || "audio/mpeg";
 }
 
 /**
