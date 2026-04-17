@@ -18,6 +18,10 @@ function hasLegacyAwsStorageEnv() {
   );
 }
 
+function getStorageDriver() {
+  return ENV.storageDriver;
+}
+
 function getEmailProvider() {
   return ENV.emailProvider.trim().toLowerCase();
 }
@@ -59,50 +63,62 @@ export function assertProductionConfig() {
     }
   }
 
-  if (hasProviderNeutralStorageEnv()) {
-    if (!ENV.s3Endpoint) {
-      missing.push("S3_ENDPOINT");
-    }
+  switch (getStorageDriver()) {
+    case "local":
+      if (!ENV.localStorageDir) {
+        missing.push("LOCAL_STORAGE_DIR");
+      }
+      break;
+    case "s3":
+      if (hasProviderNeutralStorageEnv()) {
+        if (!ENV.s3Endpoint) {
+          missing.push("S3_ENDPOINT");
+        }
 
-    if (!(process.env.S3_REGION || process.env.AWS_REGION)) {
-      missing.push("S3_REGION");
-    }
+        if (!(process.env.S3_REGION || process.env.AWS_REGION)) {
+          missing.push("S3_REGION");
+        }
 
-    if (!ENV.s3Bucket) {
-      missing.push("S3_BUCKET");
-    }
+        if (!ENV.s3Bucket) {
+          missing.push("S3_BUCKET");
+        }
 
-    if (!ENV.s3AccessKeyId) {
-      missing.push("S3_ACCESS_KEY_ID");
-    }
+        if (!ENV.s3AccessKeyId) {
+          missing.push("S3_ACCESS_KEY_ID");
+        }
 
-    if (!ENV.s3SecretAccessKey) {
-      missing.push("S3_SECRET_ACCESS_KEY");
-    }
-  } else if (hasLegacyAwsStorageEnv()) {
-    if (!(process.env.AWS_REGION || process.env.S3_REGION)) {
-      missing.push("AWS_REGION");
-    }
+        if (!ENV.s3SecretAccessKey) {
+          missing.push("S3_SECRET_ACCESS_KEY");
+        }
+      } else if (hasLegacyAwsStorageEnv()) {
+        if (!(process.env.AWS_REGION || process.env.S3_REGION)) {
+          missing.push("AWS_REGION");
+        }
 
-    if (!ENV.awsS3Bucket) {
-      missing.push("AWS_S3_BUCKET");
-    }
+        if (!ENV.awsS3Bucket) {
+          missing.push("AWS_S3_BUCKET");
+        }
 
-    if (!ENV.awsAccessKeyId) {
-      missing.push("AWS_ACCESS_KEY_ID");
-    }
+        if (!ENV.awsAccessKeyId) {
+          missing.push("AWS_ACCESS_KEY_ID");
+        }
 
-    if (!ENV.awsSecretAccessKey) {
-      missing.push("AWS_SECRET_ACCESS_KEY");
-    }
-  } else {
-    missing.push(
-      "S3_ENDPOINT",
-      "S3_REGION",
-      "S3_BUCKET",
-      "S3_ACCESS_KEY_ID",
-      "S3_SECRET_ACCESS_KEY"
-    );
+        if (!ENV.awsSecretAccessKey) {
+          missing.push("AWS_SECRET_ACCESS_KEY");
+        }
+      } else {
+        missing.push(
+          "S3_ENDPOINT",
+          "S3_REGION",
+          "S3_BUCKET",
+          "S3_ACCESS_KEY_ID",
+          "S3_SECRET_ACCESS_KEY"
+        );
+      }
+      break;
+    default:
+      missing.push("STORAGE_DRIVER(local|s3)");
+      break;
   }
 
   switch (getEmailProvider()) {

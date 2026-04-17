@@ -1,5 +1,7 @@
 import { GetObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { promises as fs } from "node:fs";
+import path from "node:path";
 import { ENV } from "./_core/env";
 
 type StorageConfig = {
@@ -8,6 +10,40 @@ type StorageConfig = {
 };
 
 let s3Client: S3Client | null = null;
+
+export function isLocalStorageEnabled(): boolean {
+  return ENV.storageDriver === "local";
+}
+
+function getLocalStorageRoot(): string {
+  if (!ENV.localStorageDir) {
+    throw new Error(
+      "Local storage is not configured. Set LOCAL_STORAGE_DIR."
+    );
+  }
+
+  return path.resolve(ENV.localStorageDir);
+}
+
+function getLocalStoragePath(relKey: string): { key: string; filePath: string } {
+  const key = normalizeKey(relKey);
+  const root = getLocalStorageRoot();
+  const filePath = path.resolve(root, key);
+
+  if (filePath !== root && !filePath.startsWith(`${root}${path.sep}`)) {
+    throw new Error("Invalid storage key.");
+  }
+
+  return { key, filePath };
+}
+
+function getLocalStorageUrl(relKey: string): string {
+  const key = normalizeKey(relKey);
+  const encodedKey = key.split("/").map(encodeURIComponent).join("/");
+  const origin = ENV.appOrigin.replace(/\/+$/, "");
+
+  return `${origin}/api/storage/${encodedKey}`;
+}
 
 function getStorageConfig(): StorageConfig {
   const hasExplicitProviderNeutralStorageEnv =
@@ -106,6 +142,18 @@ export async function storagePut(
   contentType = "application/octet-stream"
 ): Promise<{ key: string; url: string }> {
   const key = normalizeKey(relKey);
+
+  if (isLocalStorageEnabled()) {
+    const local = getLocalStoragePath(key);
+    await fs.mkdir(path.dirname(local.filePath), { recursive: true });
+    await fs.writeFile(local.filePath, normalizeBody(data));
+
+    return {
+      key: local.key,
+      url: getLocalStorageUrl(local.key),
+    };
+  }
+
   const { bucket, client } = getStorageConfig();
 
   await client.send(
@@ -142,6 +190,13 @@ export async function storageGet(
 ): Promise<{ key: string; url: string }> {
   const key = normalizeKey(relKey);
 
+  if (isLocalStorageEnabled()) {
+    return {
+      key,
+      url: getLocalStorageUrl(key),
+    };
+  }
+
   return {
     key,
     url: await storageGetSignedUrl(key),
@@ -170,6 +225,22 @@ function isMissingObjectError(error: unknown): boolean {
 
 export async function storageExists(relKey: string): Promise<boolean> {
   const key = normalizeKey(relKey);
+
+  if (isLocalStorageEnabled()) {
+    const local = getLocalStoragePath(key);
+
+    try {
+      const stat = await fs.stat(local.filePath);
+      return stat.isFile();
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+        return false;
+      }
+
+      throw error;
+    }
+  }
+
   const { bucket, client } = getStorageConfig();
 
   try {

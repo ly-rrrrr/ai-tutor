@@ -10,6 +10,7 @@ import { serveStatic, setupVite } from "./vite";
 import { seedScenariosIfEmpty } from "../db";
 import { assertProductionConfig } from "./productionConfig";
 import { ENV } from "./env";
+import { isLocalStorageEnabled } from "../storage";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -43,6 +44,17 @@ async function startServer() {
   app.get("/healthz", (_req, res) => {
     res.status(200).json({ ok: true });
   });
+
+  if (isLocalStorageEnabled()) {
+    app.use(
+      "/api/storage",
+      express.static(ENV.localStorageDir, {
+        fallthrough: false,
+        immutable: true,
+        maxAge: "1h",
+      })
+    );
+  }
 
   registerAuthRoutes(app);
 

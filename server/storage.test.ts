@@ -1,8 +1,12 @@
+import { promises as fs } from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const sendMock = vi.fn();
 const getSignedUrlMock = vi.fn();
 const s3ClientCtorMock = vi.fn();
+const tmpDirs: string[] = [];
 
 vi.mock("@aws-sdk/client-s3", () => {
   class MockS3Client {
@@ -37,13 +41,40 @@ vi.mock("@aws-sdk/s3-request-presigner", () => ({
   getSignedUrl: getSignedUrlMock,
 }));
 
-afterEach(() => {
+afterEach(async () => {
   vi.unstubAllEnvs();
   vi.resetModules();
   vi.clearAllMocks();
+  await Promise.all(tmpDirs.splice(0).map(dir => fs.rm(dir, { recursive: true, force: true })));
 });
 
 describe("storage", () => {
+  async function makeStorageDir() {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "ai-tutor-storage-"));
+    tmpDirs.push(dir);
+    return dir;
+  }
+
+  it("uses local storage when STORAGE_DRIVER is local", async () => {
+    const dir = await makeStorageDir();
+    vi.stubEnv("STORAGE_DRIVER", "local");
+    vi.stubEnv("LOCAL_STORAGE_DIR", dir);
+    vi.stubEnv("APP_ORIGIN", "https://app.example.com");
+
+    const { storageExists, storageGet, storagePut } = await import("./storage");
+
+    const result = await storagePut("/audio/1/test file.mp3", Buffer.from("audio-data"), "audio/mpeg");
+
+    await expect(fs.readFile(path.join(dir, "audio/1/test file.mp3"), "utf8")).resolves.toBe("audio-data");
+    await expect(storageExists("audio/1/test file.mp3")).resolves.toBe(true);
+    await expect(storageExists("audio/1/missing.mp3")).resolves.toBe(false);
+    expect(result).toEqual({
+      key: "audio/1/test file.mp3",
+      url: "https://app.example.com/api/storage/audio/1/test%20file.mp3",
+    });
+    await expect(storageGet("audio/1/test file.mp3")).resolves.toEqual(result);
+  });
+
   it("uses provider-neutral s3 envs including endpoint when creating the client", async () => {
     vi.stubEnv("S3_ENDPOINT", "https://cos.ap-hongkong.myqcloud.com");
     vi.stubEnv("S3_REGION", "ap-hongkong");

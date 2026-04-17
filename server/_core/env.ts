@@ -63,6 +63,8 @@ export const ENV = {
     process.env.AI_TTS_MODEL ||
     process.env.OPENAI_TTS_MODEL ||
     "gpt-4o-mini-tts",
+  storageDriver: (process.env.STORAGE_DRIVER || "s3").trim().toLowerCase(),
+  localStorageDir: process.env.LOCAL_STORAGE_DIR ?? "",
   s3Endpoint: process.env.S3_ENDPOINT ?? "",
   s3Region: process.env.S3_REGION || process.env.AWS_REGION || "ap-hongkong",
   s3Bucket: process.env.S3_BUCKET || process.env.AWS_S3_BUCKET || "",

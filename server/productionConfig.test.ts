@@ -83,6 +83,33 @@ describe("production config", () => {
     expect(() => assertProductionConfig()).not.toThrow();
   });
 
+  it("accepts local file storage in production", async () => {
+    vi.stubEnv("STORAGE_DRIVER", "local");
+    vi.stubEnv("LOCAL_STORAGE_DIR", "/mnt/data/ai-tutor/storage");
+    vi.stubEnv("S3_ENDPOINT", "");
+    vi.stubEnv("S3_REGION", "");
+    vi.stubEnv("S3_BUCKET", "");
+    vi.stubEnv("S3_ACCESS_KEY_ID", "");
+    vi.stubEnv("S3_SECRET_ACCESS_KEY", "");
+    vi.stubEnv("AWS_REGION", "");
+    vi.stubEnv("AWS_S3_BUCKET", "");
+    vi.stubEnv("AWS_ACCESS_KEY_ID", "");
+    vi.stubEnv("AWS_SECRET_ACCESS_KEY", "");
+
+    const { assertProductionConfig } = await import("./_core/productionConfig");
+
+    expect(() => assertProductionConfig()).not.toThrow();
+  });
+
+  it("requires a local storage directory when local storage is selected", async () => {
+    vi.stubEnv("STORAGE_DRIVER", "local");
+    vi.stubEnv("LOCAL_STORAGE_DIR", "");
+
+    const { assertProductionConfig } = await import("./_core/productionConfig");
+
+    expect(() => assertProductionConfig()).toThrow("LOCAL_STORAGE_DIR");
+  });
+
   it("accepts disabled email delivery in production", async () => {
     vi.stubEnv("EMAIL_PROVIDER", "disabled");
     vi.stubEnv("EMAIL_FROM", "");

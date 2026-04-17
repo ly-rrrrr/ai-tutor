@@ -7,9 +7,12 @@ services:
       - .env.production
     environment:
       PORT: 3000
+      LOCAL_STORAGE_DIR: /app/storage
     depends_on:
       mysql:
         condition: service_healthy
+    volumes:
+      - ${LOCAL_STORAGE_HOST_DIR:-./.docker/storage}:/app/storage
     expose:
       - "3000"
     healthcheck:
